@@ -14,39 +14,42 @@ open Vocab
 module Val =
 struct
   include ProdDom.Make6 (Itv) (PowLoc) (ArrayBlk) (StructBlk) (PowProc) (Footprints)
-  let null = (Itv.bot, PowLoc.null, ArrayBlk.bot, StructBlk.bot, PowProc.bot)
-  let is_itv (i,_,_,_,_) = not (Itv.is_bot i)
-  let is_array (_,_,a,_,_) = not (ArrayBlk.is_empty a)
-  let make (i,p,a,s,proc) = (i,p,a,s,proc)
+  let null = (Itv.bot, PowLoc.null, ArrayBlk.bot, StructBlk.bot, PowProc.bot, Footprints.bot)
+  let is_itv (i,_,_,_,_,_) = not (Itv.is_bot i)
+  let is_array (_,_,a,_,_,_) = not (ArrayBlk.is_empty a)
+  let make (i,p,a,s,proc,f) = (i,p,a,s,proc,f)
   let itv_of_val : t -> Itv.t = fst
   let pow_loc_of_val : t -> PowLoc.t = snd
   let array_of_val : t -> ArrayBlk.t = trd
   let struct_of_val : t -> StructBlk.t = frth
   let pow_proc_of_val : t -> PowProc.t = fifth
+  let footprints_of_val : t -> Footprints.t = sixth
   let allocsites_of_val : t -> Allocsite.t BatSet.t
   = fun v -> v |> array_of_val |> ArrayBlk.allocsites_of_array
 
   let of_itv : Itv.t -> t = fun x ->
-    (x, PowLoc.bot, ArrayBlk.bot, StructBlk.bot, PowProc.bot)
+    (x, PowLoc.bot, ArrayBlk.bot, StructBlk.bot, PowProc.bot, Footprints.bot)
   let of_pow_loc : PowLoc.t -> t = fun x ->
-    (Itv.bot, x, ArrayBlk.bot, StructBlk.bot, PowProc.bot)
+    (Itv.bot, x, ArrayBlk.bot, StructBlk.bot, PowProc.bot, Footprints.bot)
   let of_array : ArrayBlk.t -> t = fun x ->
-    (Itv.bot, PowLoc.bot, x, StructBlk.bot, PowProc.bot)
+    (Itv.bot, PowLoc.bot, x, StructBlk.bot, PowProc.bot, Footprints.bot)
   let of_struct : StructBlk.t -> t = fun x ->
-    (Itv.bot, PowLoc.bot, ArrayBlk.bot, x, PowProc.bot)
+    (Itv.bot, PowLoc.bot, ArrayBlk.bot, x, PowProc.bot, Footprints.bot) 
   let of_pow_proc : PowProc.t -> t = fun x ->
-    (Itv.bot, PowLoc.bot, ArrayBlk.bot, StructBlk.bot, x)
+    (Itv.bot, PowLoc.bot, ArrayBlk.bot, StructBlk.bot, x, Footprints.bot)
+  let of_footprints : Footprints.t -> t = fun x ->
+    (Itv.bot, PowLoc.bot, ArrayBlk.bot, StructBlk.bot, PowProc.bot, x)
 
   let modify_itv : Itv.t -> t -> t = fun i x ->
-    (i, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x)
+    (i, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, footprints_of_val x)
 
   let modify_arr : ArrayBlk.t -> t -> t = fun a x ->
-    (itv_of_val x, pow_loc_of_val x, a, struct_of_val x, pow_proc_of_val x)
+    (itv_of_val x, pow_loc_of_val x, a, struct_of_val x, pow_proc_of_val x, footprints_of_val x)
 
   let external_value : Allocsite.t -> t = fun allocsite ->
-    (Itv.top, PowLoc.bot, ArrayBlk.extern allocsite, StructBlk.extern (), PowProc.bot)
+    (Itv.top, PowLoc.bot, ArrayBlk.extern allocsite, StructBlk.extern (), PowProc.bot, Footprints.bot)
 
-  let itv_top : t = (Itv.top, PowLoc.bot, ArrayBlk.bot, StructBlk.bot, PowProc.bot)
+  let itv_top : t = (Itv.top, PowLoc.bot, ArrayBlk.bot, StructBlk.bot, PowProc.bot, Footprints.bot)
 
   let cast : Cil.typ -> Cil.typ -> t -> t
   = fun from_typ to_typ v ->

@@ -1,9 +1,9 @@
 module Footprint =
 struct
   type t = {
-    file: string;
-    line: int;
-    src_location: Cil.location;
+    file: string; (** The analyzer's fileName **)
+    line: int;    (** Line number in the file **)
+    src_location: Cil.location; (** Describe a location in a C source file **)
   }
 
   let compare x y =

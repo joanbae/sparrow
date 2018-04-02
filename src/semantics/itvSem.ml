@@ -243,7 +243,7 @@ let rec prune_simple : update_mode -> Spec.t -> Global.t -> Proc.t -> exp -> Mem
       let x_ploc = Val.pow_loc_of_val x_v in
       let x_itv = Itv.prune op x_itv e_v in
       let x_ploc = PowLoc.prune op x_ploc e in
-      let x_pruned = Val.make (x_itv, x_ploc, Val.array_of_val x_v, Val.struct_of_val x_v, Val.pow_proc_of_val x_v) in
+      let x_pruned = Val.make (x_itv, x_ploc, Val.array_of_val x_v, Val.struct_of_val x_v, Val.pow_proc_of_val x_v, Val.footprints_of_val x_v) in
       update mode spec global x_lv x_pruned mem
     else mem
   | BinOp (op, e1, e2, _) when op = LAnd || op = LOr ->
