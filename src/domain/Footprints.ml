@@ -1,0 +1,25 @@
+module Footprint =
+struct
+  type t = {
+    file: string;
+    line: int;
+    src_location: Cil.location;
+  }
+
+  let compare x y =
+    compare x.file y.file |> fun r -> if r <> 0 then r else
+      compare x.line y.line |> fun r -> if r <> 0 then r else
+        Cil.compareLoc x.src_location y.src_location
+
+  let pp fmt {file; line;
+              src_location = {Cil.file = src_file;
+                              line = src_line;
+                              byte = src_byte}} =
+    Format.fprintf fmt "%s:%d(%s:%d:%d)" file line src_file src_line src_byte
+
+  let to_string x =
+    pp Format.str_formatter x;
+    Format.flush_str_formatter ()
+end
+
+include PowDom.MakeCPO (Footprint)

@@ -139,7 +139,6 @@ struct
         invalid_arg "itv.ml: Integer.divide (+oo, 0)"
     | Int _,  PInf
     | Int _,  MInf -> Int 0
-
   let min4 : t -> t -> t -> t -> t = fun x y z w ->
     min (min x y) (min z w)
 

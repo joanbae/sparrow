@@ -27,3 +27,14 @@ module Make5 (A:CPO) (B:CPO) (C:CPO) (D:CPO) (E:CPO) : sig
   val frth  : t -> D.t
   val fifth : t -> E.t
 end with type t = A.t * B.t * C.t * D.t * E.t
+
+module Make6 (A:CPO) (B:CPO) (C:CPO) (D:CPO) (E:CPO) (F:CPO) : sig
+  include AbsDom.CPO
+  val make  : (A.t * B.t * C.t * D.t * E.t * F.t) -> t
+  val fst   : t -> A.t
+  val snd   : t -> B.t
+  val trd   : t -> C.t
+  val frth  : t -> D.t
+  val fifth : t -> E.t
+  val sixth : t -> F.t
+end with type t = A.t * B.t * C.t * D.t * E.t * F.t

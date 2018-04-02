@@ -13,7 +13,7 @@ open Vocab
 
 module Val =
 struct
-  include ProdDom.Make5 (Itv) (PowLoc) (ArrayBlk) (StructBlk) (PowProc)
+  include ProdDom.Make6 (Itv) (PowLoc) (ArrayBlk) (StructBlk) (PowProc) (Footprints)
   let null = (Itv.bot, PowLoc.null, ArrayBlk.bot, StructBlk.bot, PowProc.bot)
   let is_itv (i,_,_,_,_) = not (Itv.is_bot i)
   let is_array (_,_,a,_,_) = not (ArrayBlk.is_empty a)
