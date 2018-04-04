@@ -20,9 +20,15 @@ struct
   let to_string x =
     pp Format.str_formatter x;
     Format.flush_str_formatter ()
+
+  let of_here here src_location : t =
+    { file = here.Lexing.pos_fname;
+      line = here.Lexing.pos_lnum;
+      src_location}
 end
 
 include PowDom.MakeCPO (Footprint)
 
-let make file line src_location = add { Footprint.file = file; line; src_location } empty
+let of_here here src_location = singleton (Footprint.of_here here src_location)
 
+let make file line src_location = add { Footprint.file = file; line; src_location } empty

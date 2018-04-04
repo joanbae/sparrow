@@ -68,8 +68,8 @@ struct
    "("^(Itv.to_string (fst x))^", "^(PowLoc.to_string (snd x))^", "
     ^(ArrayBlk.to_string (trd x))^", "
     ^(StructBlk.to_string (frth x))^", "
-    ^(PowProc.to_string (fifth x))^")"
-
+    ^(PowProc.to_string (fifth x))^", "
+    ^(Footprints.to_string (sixth x))^")"
 end
 
 module Mem =

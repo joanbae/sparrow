@@ -74,7 +74,7 @@ let eval_uop : Spec.t -> Cil.unop -> Val.t -> Cil.location -> Val.t
 = fun spec u v loc ->
   if Val.eq v Val.bot then Val.bot else
     let itv = Val.itv_of_val v in
-    let fp = Footprints.make fileName 77 loc in
+    let fp = Footprints.of_here [%here] in
     let itv' =
       match u with
       | Cil.Neg -> Itv.minus (Itv.of_int 0) itv
