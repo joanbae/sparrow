@@ -46,6 +46,9 @@ struct
   let modify_arr : ArrayBlk.t -> t -> t = fun a x ->
     (itv_of_val x, pow_loc_of_val x, a, struct_of_val x, pow_proc_of_val x, footprints_of_val x)
 
+  let modify_footprints : Footprints.t -> t -> t = fun f x ->
+    (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f)
+    
   let external_value : Allocsite.t -> t = fun allocsite ->
     (Itv.top, PowLoc.bot, ArrayBlk.extern allocsite, StructBlk.extern (), PowProc.bot, Footprints.bot)
 

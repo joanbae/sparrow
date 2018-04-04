@@ -23,6 +23,8 @@ module Dom = ItvDom.Mem
 module Access = Dom.Access
 module Spec = Spec.Make(Dom)
 
+let fileName = "itvSem.ml"
+
 (* ********************** *
  * Abstract memory access *
  * ********************** *)
@@ -117,7 +119,6 @@ let eval_bop : Spec.t -> Cil.binop -> Val.t -> Val.t -> Val.t
     if spec.Spec.unsound_bitwise then v1
     else Val.of_itv (Itv.unknown_binary (Val.itv_of_val v1) (Val.itv_of_val v2))
 
-
 let rec resolve_offset : Spec.t -> Proc.t -> Val.t -> Cil.offset -> Mem.t -> PowLoc.t
 = fun spec pid v os mem ->
   match os with
@@ -156,15 +157,30 @@ and var_of_varinfo vi pid  =
   if vi.Cil.vglob then Loc.of_gvar vi.Cil.vname vi.Cil.vtype
   else Loc.of_lvar pid vi.Cil.vname vi.Cil.vtype
 
-and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Val.t
-= fun pid e mem ->
+and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> Val.t
+= fun pid e mem loc ->
   match e with
-  | Cil.Const c -> eval_const c
+  | Cil.Const c -> 
+    let const = eval_const c in
+    let footprint = Footprints.make fileName 163 loc in
+    Val.modify_footprints footprint const
   | Cil.Lval l -> lookup (eval_lv ~spec pid l mem) mem
-  | Cil.SizeOf t -> Val.of_itv (try CilHelper.byteSizeOf t |> Itv.of_int with _ -> Itv.pos)
-  | Cil.SizeOfE e -> Val.of_itv (try CilHelper.byteSizeOf (Cil.typeOf e) |> Itv.of_int with _ -> Itv.pos)
-  | Cil.SizeOfStr s -> Val.of_itv (Itv.of_int (String.length s + 1))
-  | Cil.AlignOf t -> Val.of_itv (Itv.of_int (Cil.alignOf_int t))
+  | Cil.SizeOf t ->
+    let sizeOf = Val.of_itv (try CilHelper.byteSizeOf t |> Itv.of_int with _ -> Itv.pos) in
+    let footprint = Footprints.make fileName 168 loc in
+    Val.modify_footprints footprint sizeOf
+  | Cil.SizeOfE e ->
+    let sizeOfE = Val.of_itv (try CilHelper.byteSizeOf (Cil.typeOf e) |> Itv.of_int with _ -> Itv.pos) in
+    let footprint = Footprints.make fileName 173 loc in
+    Val.modify_footprints footprint sizeOfE
+  | Cil.SizeOfStr s ->
+    let sizeOfStr = Val.of_itv (Itv.of_int (String.length s + 1)) in
+    let footprint = Footprints.make fileName 176 loc in
+    Val.modify_footprints footprint sizeOfStr
+  | Cil.AlignOf t ->
+    let alignOf = Val.of_itv (Itv.of_int (Cil.alignOf_int t)) in
+    let footprint = Footprints.make fileName 180 loc in
+    
   (* TODO: type information is required for precise semantics of AlignOfE.  *)
   | Cil.AlignOfE _ -> Val.of_itv Itv.top
   | Cil.UnOp (u, e, _) -> eval_uop spec u (eval ~spec pid e mem)
@@ -628,7 +644,7 @@ let run : update_mode -> Spec.t -> Node.t -> Mem.t * Global.t -> Mem.t * Global.
   let pid = Node.get_pid node in
   match InterCfg.cmdof global.icfg node with
   | IntraCfg.Cmd.Cset (l, e, loc) ->
-      (update mode spec global (eval_lv ~spec pid l mem) (eval ~spec pid e mem) mem, global)
+      (update mode spec global (eval_lv ~spec pid l mem) (eval ~spec pid e mem loc) mem, global)
   | IntraCfg.Cmd.Cexternal (l, _) ->
     (match Cil.typeOfLval l with
        Cil.TInt (_, _) | Cil.TFloat (_, _) ->

@@ -1,3 +1,46 @@
+test/test.c 
+
+
+
+--------------------------------------------------------------------------------
+Front-end begins...
+--------------------------------------------------------------------------------
+
+
+Front-end completes: 0.000513
+
+
+
+--------------------------------------------------------------------------------
+Translation to graphs begins...
+--------------------------------------------------------------------------------
+
+
+#nodes all   : 20
+#unreachable : 0
+
+Translation to graphs completes: 0.000192000000001
+
+
+
+--------------------------------------------------------------------------------
+Pre-analysis begins...
+--------------------------------------------------------------------------------
+
+iteration : 1iteration : 2iteration : 3iteration : 4iteration : 5iteration : 6
+mem size : 9
+
+#functions all : 2
+#recursive : 0
+#unreachable   : 0
+
+Pre-analysis completes: 0.000171000000001
+To inline : []
+Excluded variable-arguments functions : []
+Excluded recursive functions : []
+Excluded too large functions : []
+#Procs : 2
+#Nodes : 20
 {
   "callgraph": { "nodes": [ "_G_", "main" ], "edges": [ [ "_G_", "main" ] ] },
   "cfgs": {
@@ -52,30 +95,5 @@
         [ "ENTRY", "23" ]
       ]
     }
-  },
-  "dugraph": {
-    "nodes": [
-      "main-12", "main-6", "main-21", "main-20", "_G_-23", "main-17",
-      "main-13", "main-18", "main-19", "main-22", "main-14", "main-15",
-      "_G_-24"
-    ],
-    "edges": [
-      [ "main-12", "main-13", "(main,__cil_tmp5)," ],
-      [ "main-6", "main-20", "main-22," ],
-      [ "main-6", "main-19", "main-12," ],
-      [ "main-6", "main-15", "(main,i)," ],
-      [ "main-6", "main-14", "(main,i)," ],
-      [ "main-21", "main-6", "(main,i)," ],
-      [ "main-20", "main-6", "main-22," ],
-      [ "_G_-23", "_G_-24", "main," ],
-      [ "main-17", "main-20", "(main,p)," ],
-      [ "main-13", "main-19", "(main,arr)," ],
-      [ "main-18", "main-6", "(main,i)," ],
-      [ "main-19", "main-6", "main-12," ],
-      [ "main-22", "main-17", "(main,tmp)," ],
-      [ "main-15", "main-21", "(main,i)," ],
-      [ "main-15", "main-20", "(main,i)," ],
-      [ "main-15", "main-19", "(main,i)," ]
-    ]
   }
 }

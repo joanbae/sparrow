@@ -1,0 +1,8 @@
+digraph callgraph {
+{
+node [shape=box]
+_G_[label="_G_" URL="_G_.svg"]
+main[label="main" URL="main.svg"]
+}
+_G_ -> main
+}

@@ -2,7 +2,7 @@ module Footprint =
 struct
   type t = {
     file: string; (** The analyzer's fileName **)
-    line: int;    (** Line number in the file **)
+    line: int;    (** Line number in that file **)
     src_location: Cil.location; (** Describe a location in a C source file **)
   }
 
@@ -23,3 +23,6 @@ struct
 end
 
 include PowDom.MakeCPO (Footprint)
+
+let make file line src_location = add { Footprint.file = file; line; src_location } empty
+
