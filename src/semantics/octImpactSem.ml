@@ -162,7 +162,7 @@ let model_strdup mode pid node lvo exps ptrmem (mem,global) =
     (Some lv, str::_) ->
       let o = lookup mem in
       let lv_set = Allocsite.allocsite_of_node node |> OctLoc.of_size |> PowOctLoc.singleton in
-      let rv_set = ItvSem.eval pid str ptrmem |> ItvDom.Val.allocsites_of_val |>  PowOctLoc.of_sizes in
+      let rv_set = ItvSem.eval pid str ptrmem (failwith "TODO") |> ItvDom.Val.allocsites_of_val |>  PowOctLoc.of_sizes in
       let o =
             if can_strong_update_octloc mode global lv_set &&
                can_strong_update_octloc mode global rv_set
@@ -198,7 +198,7 @@ let sparrow_arg mode pid exps ptrmem (mem,global) =
 let model_strlen mode pid lvo exps ptrmem (mem, global) =
   match lvo, exps with
   | (Some lv, (str::_)) ->
-    let rv_set = ItvSem.eval pid str ptrmem |> ItvDom.Val.allocsites_of_val |> PowOctLoc.of_sizes in
+    let rv_set = ItvSem.eval pid str ptrmem (failwith "TODO") |> ItvDom.Val.allocsites_of_val |> PowOctLoc.of_sizes in
     let lv_set = ItvSem.eval_lv pid lv ptrmem |> PowOctLoc.of_locs in
     let mem = forget mode global pid lv_set mem in
     let o = lookup mem in
@@ -292,7 +292,7 @@ let rec run_cmd mode node cmd ptrmem (mem,global) =
       let _ = lookup mem in (* for inspection *)
       handle_undefined_functions mode node pid (lvo,f,arg_exps) ptrmem (mem,global) loc
   | IntraCfg.Cmd.Ccall (lvo, f, arg_exps, _) ->
-      let fs = ItvDom.Val.pow_proc_of_val (ItvSem.eval pid f ptrmem) in
+      let fs = ItvDom.Val.pow_proc_of_val (ItvSem.eval pid f ptrmem (failwith "TODO")) in
       if PowProc.eq fs PowProc.bot then mem
       else
         let arg_lvars_of_proc f acc =

@@ -74,18 +74,18 @@ let inspect_aexp : PackConf.t -> InterCfg.node -> AlarmExp.t -> ItvDom.Mem.t ->
   (match aexp with
   | ArrayExp (lv,e,loc) ->
       let v1 = ItvDom.Mem.lookup (ItvSem.eval_lv (InterCfg.Node.get_pid node) lv ptrmem) ptrmem in
-      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem in
+      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem (failwith "TODO") in
       check packconf pid v1 (Some v2) (Some e) ptrmem mem
       |> List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc;
           allocsite = a; status = status; desc = desc })
   | DerefExp (Cil.BinOp (op, e1, e2, _) ,loc) when op = Cil.PlusPI || op = Cil.IndexPI ->
-      let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem in
-      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem in
+      let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem (failwith "TODO") in
+      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem (failwith "TODO") in
       check packconf pid v1 (Some v2) (Some e2) ptrmem mem
       |> List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = a;
         status = status; desc = desc })
   | DerefExp (e,loc) ->
-      let v = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem in
+      let v = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem (failwith "TODO") in
       check packconf pid v None None ptrmem mem
       |> cond (ItvDom.Val.eq ItvDom.Val.bot v)
           (List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = a;
@@ -98,15 +98,15 @@ let inspect_aexp : PackConf.t -> InterCfg.node -> AlarmExp.t -> ItvDom.Mem.t ->
                         { node = node; exp = aexp; loc = loc; allocsite = a; status = status;
                           desc = desc }))
   | Strcpy (e1, e2, loc) ->
-      let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem in
-      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem in
+      let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem (failwith "TODO") in
+      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem (failwith "TODO") in
       let v2 = ItvDom.Val.of_itv (ArrayBlk.nullof (ItvDom.Val.array_of_val v2)) in
       check packconf pid v1 (Some v2) None ptrmem mem
       |> List.map (fun (status,a,desc) ->
           { node = node; exp = aexp; loc = loc; allocsite = a; status = status; desc = desc })
     | Strcat (e1, e2, loc) ->
-        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem in
-        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem in
+        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem (failwith "TODO") in
+        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem (failwith "TODO") in
         let np1 = ArrayBlk.nullof (ItvDom.Val.array_of_val v1) in
         let np2 = ArrayBlk.nullof (ItvDom.Val.array_of_val v2) in
         let np = ItvDom.Val.of_itv (Itv.plus np1 np2) in
@@ -116,10 +116,10 @@ let inspect_aexp : PackConf.t -> InterCfg.node -> AlarmExp.t -> ItvDom.Mem.t ->
     | Strncpy (e1, e2, e3, loc)
     | Memcpy (e1, e2, e3, loc)
     | Memmove (e1, e2, e3, loc) ->
-        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem in
-        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem in
+        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem (failwith "TODO") in
+        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem (failwith "TODO") in
         let e3_1 = Cil.BinOp (Cil.MinusA, e3, Cil.mone, Cil.intType) in
-        let v3 = ItvSem.eval (InterCfg.Node.get_pid node) e3_1 ptrmem in
+        let v3 = ItvSem.eval (InterCfg.Node.get_pid node) e3_1 ptrmem (failwith "TODO") in
         let lst1 = check packconf pid v1 (Some v3) (Some e3) ptrmem mem in
         let lst2 = check packconf pid v2 (Some v3) (Some e2) ptrmem mem in
         (lst1@lst2)
@@ -160,7 +160,7 @@ let sparrow_relation_set pid mem exps rel =
 let sparrow_relation_malloc pid mem exps rel =
   match exps with
     x::(Cil.Lval y)::_ ->
-      let lv_x = ItvSem.eval pid x mem |> ItvDom.Val.allocsites_of_val in
+      let lv_x = ItvSem.eval pid x mem (failwith "TODO") |> ItvDom.Val.allocsites_of_val in
       let lv_y = ItvSem.eval_lv pid y mem in
       BatSet.fold (fun x ->
           PowLoc.fold (fun y ->
@@ -172,7 +172,7 @@ let sparrow_relation_strlen pid mem exps rel =
   match exps with
     (Cil.Lval x)::y::_ ->
       let lv_x = ItvSem.eval_lv pid x mem in
-      let lv_y = ItvSem.eval pid y mem |> ItvDom.Val.allocsites_of_val in
+      let lv_y = ItvSem.eval pid y mem (failwith "TODO") |> ItvDom.Val.allocsites_of_val in
       PowLoc.fold (fun x ->
           BatSet.fold (fun y ->
             OctImpactDom.Relation.add_edge (OctLoc.of_loc x) (OctLoc.of_size y)) lv_y) lv_x rel

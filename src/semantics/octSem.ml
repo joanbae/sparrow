@@ -175,7 +175,7 @@ let cond_to_texpr : Proc.t -> PackConf.t -> Pack.t -> OctLoc.t -> Cil.binop -> C
 let nat_texpr = Texpr1.Cst (Coeff.Interval (Interval.of_scalar (Scalar.of_int 0) (Scalar.of_infty 1)))
 let strlen_texpr_set : Proc.t -> PackConf.t -> Pack.t -> Cil.exp -> ItvDom.Mem.t -> Mem.t -> Texpr1.expr list
 = fun pid packconf pack exp ptrmem mem ->
-  let set = ItvSem.eval pid exp ptrmem |> ItvDom.Val.allocsites_of_val |> PowOctLoc.of_sizes in
+  let set = ItvSem.eval pid exp ptrmem (failwith "TODO") |> ItvDom.Val.allocsites_of_val |> PowOctLoc.of_sizes in
   if PowOctLoc.for_all (fun x ->
       let rv_pack = PackConf.get_pack packconf x in
       let rv_oct = lookup rv_pack mem in
@@ -186,7 +186,7 @@ let strlen_texpr_set : Proc.t -> PackConf.t -> Pack.t -> Cil.exp -> ItvDom.Mem.t
 let strlen_texpr_prune : Proc.t -> PackConf.t -> Pack.t -> OctLoc.t -> Cil.exp -> ItvDom.Mem.t
   -> Mem.t -> (Texpr1.expr * Tcons1.typ) list
 = fun pid packconf pack lv exp ptrmem mem ->
-  let set = ItvSem.eval pid exp ptrmem |> ItvDom.Val.allocsites_of_val |> PowOctLoc.of_sizes in
+  let set = ItvSem.eval pid exp ptrmem (failwith "TODO") |> ItvDom.Val.allocsites_of_val |> PowOctLoc.of_sizes in
   PowOctLoc.fold (fun x el ->
       let rv_pack = PackConf.get_pack packconf x in
       let rv_oct = lookup rv_pack mem in
@@ -314,7 +314,7 @@ let model_calloc mode packconf node pid lvo exps ptrmem (mem, global) =
 
 let strdup_texpr : Proc.t -> PackConf.t -> Pack.t -> Cil.exp -> ItvDom.Mem.t -> Mem.t -> Texpr1.expr list
 = fun pid packconf pack exp ptrmem mem ->
-  let set = ItvSem.eval pid exp ptrmem |> ItvDom.Val.allocsites_of_val |> PowOctLoc.of_sizes in
+  let set = ItvSem.eval pid exp ptrmem (failwith "TODO") |> ItvDom.Val.allocsites_of_val |> PowOctLoc.of_sizes in
   PowOctLoc.fold (fun x l ->
       let rv_pack = PackConf.get_pack packconf x in
       let rv_oct = lookup rv_pack mem in
@@ -416,7 +416,7 @@ let rec run_cmd mode packconf node cmd ptrmem (mem,global) =
     when Global.is_undef f.vname global -> (* undefined library functions *)
       handle_undefined_functions mode packconf node pid (lvo,f,arg_exps) ptrmem (mem,global) loc
   | IntraCfg.Cmd.Ccall (lvo, f, arg_exps, _) ->
-      let fs = ItvDom.Val.pow_proc_of_val (ItvSem.eval pid f ptrmem) in
+      let fs = ItvDom.Val.pow_proc_of_val (ItvSem.eval pid f ptrmem (failwith "TODO")) in
       if PowProc.eq fs PowProc.bot then mem
       else
         let arg_lvars_of_proc f acc =

@@ -70,10 +70,11 @@ let eval_const : Cil.constant -> Val.t = fun cst ->
   (* Enum is not evaluated correctly in our analysis. *)
   | Cil.CEnum _ -> Val.of_itv Itv.top
 
-let eval_uop : Spec.t -> Cil.unop -> Val.t -> Val.t
-= fun spec u v ->
+let eval_uop : Spec.t -> Cil.unop -> Val.t -> Cil.location -> Val.t
+= fun spec u v loc ->
   if Val.eq v Val.bot then Val.bot else
     let itv = Val.itv_of_val v in
+    let fp = Footprints.make fileName 77 loc in
     let itv' =
       match u with
       | Cil.Neg -> Itv.minus (Itv.of_int 0) itv
@@ -149,7 +150,7 @@ and eval_lv ?(spec=Spec.empty) : Proc.t -> Cil.lval -> Mem.t -> PowLoc.t
       |> PowLoc.singleton
       |> Val.of_pow_loc
     | Cil.Mem e ->
-      eval ~spec pid e mem
+      eval ~spec pid e mem (failwith "ToDO")
   in
   PowLoc.remove Loc.null (resolve_offset spec pid v (snd lv) mem)
 
@@ -162,42 +163,49 @@ and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> Val.
   match e with
   | Cil.Const c -> 
     let const = eval_const c in
-    let footprint = Footprints.make fileName 163 loc in
-    Val.modify_footprints footprint const
+    let fp = Footprints.make fileName 163 loc in
+    Val.modify_footprints fp const
   | Cil.Lval l -> lookup (eval_lv ~spec pid l mem) mem
   | Cil.SizeOf t ->
     let sizeOf = Val.of_itv (try CilHelper.byteSizeOf t |> Itv.of_int with _ -> Itv.pos) in
-    let footprint = Footprints.make fileName 168 loc in
-    Val.modify_footprints footprint sizeOf
+    let fp = Footprints.make fileName 168 loc in
+    Val.modify_footprints fp sizeOf
   | Cil.SizeOfE e ->
     let sizeOfE = Val.of_itv (try CilHelper.byteSizeOf (Cil.typeOf e) |> Itv.of_int with _ -> Itv.pos) in
-    let footprint = Footprints.make fileName 173 loc in
-    Val.modify_footprints footprint sizeOfE
+    let fp = Footprints.make fileName 173 loc in
+    Val.modify_footprints fp sizeOfE
   | Cil.SizeOfStr s ->
     let sizeOfStr = Val.of_itv (Itv.of_int (String.length s + 1)) in
-    let footprint = Footprints.make fileName 176 loc in
-    Val.modify_footprints footprint sizeOfStr
+    let fp = Footprints.make fileName 176 loc in
+    Val.modify_footprints fp sizeOfStr
   | Cil.AlignOf t ->
     let alignOf = Val.of_itv (Itv.of_int (Cil.alignOf_int t)) in
-    let footprint = Footprints.make fileName 180 loc in
-    
+    let fp = Footprints.make fileName 180 loc in
+    Val.modify_footprints fp alignOf
   (* TODO: type information is required for precise semantics of AlignOfE.  *)
-  | Cil.AlignOfE _ -> Val.of_itv Itv.top
-  | Cil.UnOp (u, e, _) -> eval_uop spec u (eval ~spec pid e mem)
+  | Cil.AlignOfE _ ->
+    let alignOfE = Val.of_itv Itv.top in
+    let fp = Footprints.make fileName 185 loc in
+    Val.modify_footprints fp alignOfE
+  | Cil.UnOp (u, e, _) ->
+    let exp = eval ~spec pid e mem loc in
+    let fp = Footprints.make fileName 190 loc in
+    let fp_join = Footprints.join fp (Val.footprints_of_val exp) in
+    eval_uop spec u (Val.modify_footprints fp_join exp) loc
   | Cil.BinOp (b, e1, e2, _) ->
-    eval_bop spec b (eval ~spec pid e1 mem) (eval ~spec pid e2 mem)
+    eval_bop spec b (eval ~spec pid e1 mem loc) (eval ~spec pid e2 mem loc)
   | Cil.Question (e1, e2, e3, _) ->
-    let i1 = Val.itv_of_val (eval ~spec pid e1 mem) in
+    let i1 = Val.itv_of_val (eval ~spec pid e1 mem loc) in
     if Itv.is_bot i1 then
       Val.bot
     else if Itv.eq (Itv.of_int 0) i1 then
-      eval ~spec pid e3 mem
+      eval ~spec pid e3 mem loc
     else if not (Itv.le (Itv.of_int 0) i1) then
-      eval ~spec pid e2 mem
+      eval ~spec pid e2 mem loc
     else
-      Val.join (eval ~spec pid e2 mem) (eval ~spec pid e3 mem)
+      Val.join (eval ~spec pid e2 mem loc) (eval ~spec pid e3 mem loc)
   | Cil.CastE (t, e) ->
-    let v = eval ~spec pid e mem in
+    let v = eval ~spec pid e mem loc in
     (try Val.cast (Cil.typeOf e) t v with _ -> v)
   | Cil.AddrOf l -> eval_lv ~spec pid l mem |> Val.of_pow_loc
   | Cil.AddrOfLabel _ ->
@@ -208,14 +216,14 @@ and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> Val.
 
 let eval_list : Spec.t -> Proc.t -> Cil.exp list -> Mem.t -> Val.t list
 = fun spec pid exps mem ->
-  List.map (fun e -> eval ~spec pid e mem) exps
+  List.map (fun e -> eval ~spec pid e mem (failwith "TODO")) exps
 
 let eval_array_alloc ?(spec=Spec.empty) : Node.t -> Cil.exp -> bool -> Mem.t -> Val.t
 = fun node e is_static mem ->
   let pid = Node.get_pid node in
   let allocsite = Allocsite.allocsite_of_node node in
   let o = Itv.of_int 0 in
-  let sz = Val.itv_of_val (eval ~spec pid e mem) in
+  let sz = Val.itv_of_val (eval ~spec pid e mem (failwith "TODO")) in
   (* NOTE: stride is always one when allocating memory. *)
   let st = Itv.of_int 1 in
   let np = Itv.nat in
@@ -254,7 +262,7 @@ let rec prune_simple : update_mode -> Spec.t -> Global.t -> Proc.t -> exp -> Mem
     let x_lv = eval_lv ~spec pid x mem in
     if PowLoc.cardinal x_lv = 1 then
       let x_v = lookup x_lv mem in
-      let e_v = eval ~spec pid e mem |> Val.itv_of_val in
+      let e_v = eval ~spec pid e mem (failwith "TODO") |> Val.itv_of_val in
       let x_itv = Val.itv_of_val x_v in
       let x_ploc = Val.pow_loc_of_val x_v in
       let x_itv = Itv.prune op x_itv e_v in
@@ -367,7 +375,7 @@ let model_strdup mode spec node (lvo, exps) (mem, global) =
   match (lvo, exps) with
   | (Some lv, str::_) ->
     let allocsite = Allocsite.allocsite_of_node node in
-    let str_val = eval ~spec pid str mem |> ItvDom.Val.array_of_val in
+    let str_val = eval ~spec pid str mem (failwith "TODO")|> ItvDom.Val.array_of_val in
     let size = ArrayBlk.sizeof str_val in
     let null_pos = ArrayBlk.nullof str_val in
     let allocsites = ArrayBlk.pow_loc_of_array str_val in
@@ -394,14 +402,14 @@ let model_input mode spec pid lvo (mem, global) =
 let model_assign mode spec pid (lvo,exps) (mem, global) =
   match (lvo,exps) with
     (Some lv, e::_) ->
-      (update mode spec global (eval_lv ~spec pid lv mem) (eval ~spec pid e mem) mem, global)
+      (update mode spec global (eval_lv ~spec pid lv mem) (eval ~spec pid e mem (failwith "TODO")) mem, global)
   | (_, _) -> (mem,global)
 
 
 let model_strlen mode spec pid (lvo, exps) (mem, global) =
   match (lvo, exps) with
   | (Some lv, str::_) ->
-    let str_val = eval ~spec pid str mem in
+    let str_val = eval ~spec pid str mem (failwith "TODO") in
     let null_pos = ArrayBlk.nullof (ItvDom.Val.array_of_val str_val) in
     let v = Val.of_itv (Itv.meet Itv.nat null_pos) in
     (update mode spec global (eval_lv ~spec pid lv mem) v mem, global)
@@ -410,7 +418,7 @@ let model_strlen mode spec pid (lvo, exps) (mem, global) =
 let rec model_fgets mode spec pid (lvo, exps) (mem, global) =
   match (lvo, exps) with
   | (_, Lval buf::size::_) | (_, StartOf buf::size::_) ->
-    let size_itv = eval ~spec pid size mem |> ItvDom.Val.itv_of_val in
+    let size_itv = eval ~spec pid size mem (failwith "TODO") |> ItvDom.Val.itv_of_val in
     let buf_lv = eval_lv ~spec pid buf mem in
     let buf_arr = lookup buf_lv mem |> ItvDom.Val.array_of_val in
     let allocsites = ArrayBlk.pow_loc_of_array buf_arr in
@@ -425,7 +433,7 @@ let rec model_fgets mode spec pid (lvo, exps) (mem, global) =
 let rec model_sprintf mode spec pid (lvo, exps) (mem, global) =
   match exps with
   | Lval buf::str::[] | StartOf buf::str::[] ->  (* format string *)
-    let str_val = eval ~spec pid str mem |> ItvDom.Val.array_of_val in
+    let str_val = eval ~spec pid str mem (failwith "TODO") |> ItvDom.Val.array_of_val in
     let (arrays, null_pos) = (ArrayBlk.pow_loc_of_array str_val, ArrayBlk.nullof str_val) in
     let buf_lv = eval_lv ~spec pid buf mem in
     let buf_arr = lookup buf_lv mem |> ItvDom.Val.array_of_val in
@@ -491,7 +499,7 @@ let model_unknown mode spec node pid lvo f exps (mem, global) =
 let model_memcpy mode spec pid (lvo, exps) (mem, global) =
   match (lvo, exps) with
     Some lv, dst::src::_ ->
-      let (src_v, dst_v) = tuple mem |> Tuple2.map (eval ~spec pid src) (eval ~spec pid dst) in
+      let (src_v, dst_v) = tuple mem |> Tuple2.map (fun mem -> eval ~spec pid src mem (failwith "Todo")) (fun mem -> eval ~spec pid dst mem (failwith "Todo")) in
       let (src_l, dst_l) = (src_v, dst_v) |> Tuple2.mapn Val.array_of_val
                            |> Tuple2.mapn ArrayBlk.pow_loc_of_array
       in
@@ -536,8 +544,8 @@ let rec model_strncpy mode spec node pid es (mem, global) =
   | (Lval dst)::_::size::_
   | (StartOf dst)::_::size::_ ->
       let arr = Val.array_of_val (lookup (eval_lv ~spec pid dst mem) mem) in
-      let sz = Val.itv_of_val (eval ~spec pid size mem) in
-      let np = Itv.join Itv.zero (Itv.minus sz Itv.one)in
+      let sz = Val.itv_of_val (eval ~spec pid size mem (failwith "TOdo")) in
+      let np = Itv.join Itv.zero (Itv.minus sz Itv.one) in
       let newv = Val.of_array (ArrayBlk.set_null_pos arr np) in
       let mem = mem |> update mode spec global (eval_lv ~spec pid dst mem) newv in
       (mem, global)
@@ -572,11 +580,11 @@ let rec model_strchr mode spec node pid (lvo, exps) (mem, global) =
 let sparrow_array_init mode spec node pid exps (mem, global) =
   match List.nth exps 0, List.nth exps 1 with
   | arr, Cil.Const (Cil.CInt64 (_, _, _)) ->
-      let lv = eval ~spec pid arr mem |> Val.array_of_val |> ArrayBlk.pow_loc_of_array in
-      let v = List.fold_left (fun v e -> Val.join (eval ~spec pid e mem) v) Val.bot (List.tl exps) in
+      let lv = eval ~spec pid arr mem (failwith "Todo") |> Val.array_of_val |> ArrayBlk.pow_loc_of_array in
+      let v = List.fold_left (fun v e -> Val.join (eval ~spec pid e mem (failwith "Todo")) v) Val.bot (List.tl exps) in
       (update mode spec global lv v mem, global)
   | arr, Cil.Const (Cil.CStr s) ->
-      let lv = eval ~spec pid arr mem |> Val.array_of_val |> ArrayBlk.pow_loc_of_array in
+      let lv = eval ~spec pid arr mem (failwith "Todo") |> Val.array_of_val |> ArrayBlk.pow_loc_of_array in
       let v = List.fold_left (fun v e ->
           match e with
             Cil.Const (Cil.CStr s) ->
@@ -685,7 +693,7 @@ let run : update_mode -> Spec.t -> Node.t -> Mem.t * Global.t -> Mem.t * Global.
       let _ = eval_list spec pid arg_exps mem in (* for inspection *)
       handle_undefined_functions mode spec node pid (lvo,f,arg_exps) (mem,global) loc
   | IntraCfg.Cmd.Ccall (lvo, f, arg_exps, _) -> (* user functions *)
-    let fs = Val.pow_proc_of_val (eval ~spec pid f mem) in
+    let fs = Val.pow_proc_of_val (eval ~spec pid f mem (failwith "Todo")) in
     if PowProc.eq fs PowProc.bot then (mem, global)
     else
       let arg_lvars_of_proc f acc =
@@ -712,13 +720,13 @@ let run : update_mode -> Spec.t -> Node.t -> Mem.t * Global.t -> Mem.t * Global.
       (match ret_opt with
       | None -> mem
       | Some e ->
-        update Weak spec global (Loc.return_var pid (Cil.typeOf e) |> PowLoc.singleton) (eval ~spec pid e mem) mem)
+        update Weak spec global (Loc.return_var pid (Cil.typeOf e) |> PowLoc.singleton) (eval ~spec pid e mem (failwith "Todo")) mem)
       |> (fun mem -> (mem, global))
   | IntraCfg.Cmd.Cskip when InterCfg.is_returnnode node global.icfg ->
     let callnode = InterCfg.callof node global.icfg in
     (match InterCfg.cmdof global.icfg callnode with
        IntraCfg.Cmd.Ccall (Some lv, f, _, _) ->
-        let callees = Val.pow_proc_of_val (eval ~spec pid f mem) in (* TODO: optimize this. memory access and du edges *)
+        let callees = Val.pow_proc_of_val (eval ~spec pid f mem (failwith "Todo")) in (* TODO: optimize this. memory access and du edges *)
         let retvar_set = PowProc.fold (fun f ->
           let ret = Loc.return_var f (Cil.typeOfLval lv) in
           PowLoc.add ret) callees PowLoc.empty in
