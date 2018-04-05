@@ -65,7 +65,7 @@ let rec set : update_mode -> Global.t -> ItvDom.Mem.t -> Proc.t -> PowOctLoc.t
                 PowOctLoc.fold AbsOct.weak_set_const x o)
         |> (fun o -> update mode global pid o mem)
     | Lval lval ->
-        ItvSem.eval_lv pid lval ptrmem
+        ItvSem.eval_lv pid lval ptrmem (failwith "TODO")
         |> PowOctLoc.of_locs
         |> (fun rv_set ->
               if can_strong_update_octloc mode global lv_set &&
@@ -80,7 +80,7 @@ let rec set : update_mode -> Global.t -> ItvDom.Mem.t -> Proc.t -> PowOctLoc.t
     | BinOp (bop, Const (CInt64 (i, _, _)), Lval lval, _)
       (* heuristic: forget the relationship only if x = x + 1 *)
       when (bop = PlusA && (Cil.i64_to_int i) = 1) || (bop = MinusA && (Cil.i64_to_int i) = -1) ->
-        ItvSem.eval_lv pid lval ptrmem
+        ItvSem.eval_lv pid lval ptrmem (failwith "TODO")
         |> PowOctLoc.of_locs
         |> (fun rv_set ->
               if PowOctLoc.meet lv_set rv_set |> PowOctLoc.is_empty then
@@ -115,7 +115,7 @@ let rec prune : update_mode -> Global.t -> ItvDom.Mem.t -> Proc.t -> Cil.exp
   | Some (Cil.BinOp (bop, Cil.Lval x, Cil.Lval y, _))
     when bop = Lt || bop = Le || bop = Eq ->
       (x, y)
-      |> BatTuple.Tuple2.mapn (fun lv -> ItvSem.eval_lv pid lv ptrmem)
+      |> BatTuple.Tuple2.mapn (fun lv -> ItvSem.eval_lv pid lv ptrmem (failwith "TODO")) 
       |> BatTuple.Tuple2.mapn PowOctLoc.of_locs
       |> (fun (lv_set, rv_set) ->
             if can_strong_update_octloc mode global lv_set &&
@@ -137,7 +137,7 @@ let rec prune : update_mode -> Global.t -> ItvDom.Mem.t -> Proc.t -> Cil.exp
 let model_realloc mode global node pid lvo exps ptrmem (mem, global) =
   match lvo, exps with
     (Some l, _::size::_) ->
-      let lv = ItvSem.eval_lv pid l ptrmem |> PowOctLoc.of_locs in
+      let lv = ItvSem.eval_lv pid l ptrmem (failwith "TODO") |> PowOctLoc.of_locs in
       let ptrs = ItvSem.eval_array_alloc node size false ptrmem |> ItvDom.Val.allocsites_of_val |> PowOctLoc.of_sizes in
       alloc mode global ptrmem pid lv ptrs size mem
   | _ -> mem
@@ -145,7 +145,7 @@ let model_realloc mode global node pid lvo exps ptrmem (mem, global) =
 let model_calloc mode global node pid lvo exps ptrmem (mem, global) =
   match lvo, exps with
     (Some l, size::_) ->
-      let lv = ItvSem.eval_lv pid l ptrmem |> PowOctLoc.of_locs in
+      let lv = ItvSem.eval_lv pid l ptrmem (failwith "TODO") |> PowOctLoc.of_locs in
       let ptrs = ItvSem.eval_array_alloc node size false ptrmem |> ItvDom.Val.allocsites_of_val |> PowOctLoc.of_sizes in
       alloc mode global ptrmem pid lv ptrs size mem
   | _ -> mem
@@ -185,8 +185,8 @@ let sparrow_print : Proc.t -> Cil.exp list -> Dom.t -> Cil.location -> unit
 let sparrow_arg mode pid exps ptrmem (mem,global) =
   match exps with
     (Cil.Lval argc)::(Cil.Lval argv)::_ ->
-      let lv = ItvSem.eval_lv pid argv ptrmem |> PowOctLoc.of_locs in
-      let argc_lv = ItvSem.eval_lv pid argc ptrmem |> PowOctLoc.of_locs in
+      let lv = ItvSem.eval_lv pid argv ptrmem (failwith "TODO") |> PowOctLoc.of_locs in
+      let argc_lv = ItvSem.eval_lv pid argc ptrmem (failwith "TODO") |> PowOctLoc.of_locs in
       let argv_a = Allocsite.allocsite_of_ext (Some "argv") |> OctLoc.of_size |> PowOctLoc.singleton in
       let arg_a = Allocsite.allocsite_of_ext (Some "arg") |> OctLoc.of_size |> PowOctLoc.singleton in
       mem
@@ -199,7 +199,7 @@ let model_strlen mode pid lvo exps ptrmem (mem, global) =
   match lvo, exps with
   | (Some lv, (str::_)) ->
     let rv_set = ItvSem.eval pid str ptrmem (failwith "TODO") |> ItvDom.Val.allocsites_of_val |> PowOctLoc.of_sizes in
-    let lv_set = ItvSem.eval_lv pid lv ptrmem |> PowOctLoc.of_locs in
+    let lv_set = ItvSem.eval_lv pid lv ptrmem (failwith "TODO") |> PowOctLoc.of_locs in
     let mem = forget mode global pid lv_set mem in
     let o = lookup mem in
     let o =
@@ -228,7 +228,7 @@ let handle_undefined_functions mode node pid (lvo,f,exps) ptrmem (mem,global) lo
      | Some lv ->
        (match (Cil.unrollTypeDeep (Cil.typeOfLval lv)) with
           Cil.TInt (_, _) | Cil.TFloat (_, _) ->
-            let lv = ItvSem.eval_lv pid lv ptrmem in
+            let lv = ItvSem.eval_lv pid lv ptrmem (failwith "TODO") in
             let oct_lv = PowOctLoc.of_locs lv in
             forget mode global pid oct_lv mem
         | _ ->
@@ -260,10 +260,10 @@ let rec run_cmd mode node cmd ptrmem (mem,global) =
 (*  prerr_endline (IntraCfg.Cmd.to_string cmd);*)
   match cmd with
   | IntraCfg.Cmd.Cset (l, e, _) ->
-      let lv = ItvSem.eval_lv pid l ptrmem |> PowOctLoc.of_locs in
+      let lv = ItvSem.eval_lv pid l ptrmem (failwith "TODO") |> PowOctLoc.of_locs in
       set mode global ptrmem pid lv e mem
   | IntraCfg.Cmd.Cexternal (l, _) ->
-      let lv = ItvSem.eval_lv pid l ptrmem in
+      let lv = ItvSem.eval_lv pid l ptrmem (failwith "TODO") in
       let oct_lv = PowOctLoc.of_locs lv in
       let (arr_val, arr_size) =
         ItvDom.Mem.lookup lv ptrmem
@@ -277,11 +277,11 @@ let rec run_cmd mode node cmd ptrmem (mem,global) =
       |> forget mode global pid arr_val
       |> forget mode global pid arr_size
   | IntraCfg.Cmd.Calloc (l, IntraCfg.Cmd.Array e, is_static, _) ->
-      let lv = ItvSem.eval_lv pid l ptrmem |> PowOctLoc.of_locs in
+      let lv = ItvSem.eval_lv pid l ptrmem (failwith "TODO") |> PowOctLoc.of_locs in
       let ptrs = ItvSem.eval_array_alloc node e is_static ptrmem |> ItvDom.Val.allocsites_of_val |> PowOctLoc.of_sizes in
       alloc mode global ptrmem pid lv ptrs e mem
   | IntraCfg.Cmd.Csalloc (l,s,_) ->
-      let lv = ItvSem.eval_lv pid l ptrmem |> PowOctLoc.of_locs in
+      let lv = ItvSem.eval_lv pid l ptrmem (failwith "TODO") |> PowOctLoc.of_locs in
       let ptrs = ItvSem.eval_string_alloc node s ptrmem |> ItvDom.Val.allocsites_of_val |> PowOctLoc.of_sizes in
       let e = Cil.integer (String.length s + 1) in
       alloc mode global ptrmem pid lv ptrs e mem

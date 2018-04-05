@@ -141,16 +141,16 @@ let rec resolve_offset : Spec.t -> Proc.t -> Val.t -> Cil.offset -> Mem.t -> Pow
     let arr = lookup ploc mem |> Val.array_of_val in
     let _ = eval ~spec pid e mem in (* NOTE: to sync with access function *)
     resolve_offset spec pid (ArrayBlk.pow_loc_of_array arr |> Val.of_pow_loc)  os' mem
-and eval_lv ?(spec=Spec.empty) : Proc.t -> Cil.lval -> Mem.t -> Cil.location -> PowLoc.t * Cil.location
-= fun pid lv mem loc ->
-  let v =
-    match fst lv with
-    | Cil.Var vi ->
-      var_of_varinfo vi pid
-      |> PowLoc.singleton
-      |> Val.of_pow_loc
-    | Cil.Mem e ->
-      eval ~spec pid e mem loc 
+and eval_lv ?(spec=Spec.empty) : Proc.t -> Cil.lval -> Mem.t -> Cil.location -> PowLoc.t
+  = fun pid lv mem loc ->
+    let v =
+      match fst lv with
+      | Cil.Var vi ->
+        var_of_varinfo vi pid
+        |> PowLoc.singleton
+        |> Val.of_pow_loc
+      | Cil.Mem e ->
+        eval ~spec pid e mem loc 
   in
   PowLoc.remove Loc.null (resolve_offset spec pid v (snd lv) mem) 
 
@@ -165,7 +165,7 @@ and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> Val.
     let const = eval_const c in
     let fp = Footprints.make fileName 163 loc in
     Val.modify_footprints fp const
-  | Cil.Lval l -> lookup (eval_lv ~spec pid l mem) mem
+  | Cil.Lval l -> lookup (eval_lv ~spec pid l mem loc) mem
   | Cil.SizeOf t ->
     let sizeOf = Val.of_itv (try CilHelper.byteSizeOf t |> Itv.of_int with _ -> Itv.pos) in
     let fp = Footprints.make fileName 168 loc in
@@ -207,11 +207,11 @@ and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> Val.
   | Cil.CastE (t, e) ->
     let v = eval ~spec pid e mem loc in
     (try Val.cast (Cil.typeOf e) t v with _ -> v)
-  | Cil.AddrOf l -> eval_lv ~spec pid l mem |> Val.of_pow_loc
+  | Cil.AddrOf l -> eval_lv ~spec pid l mem (failwith "TODO") |> Val.of_pow_loc
   | Cil.AddrOfLabel _ ->
     invalid_arg "itvSem.ml:eval AddrOfLabel mem. \
                  Analysis does not support label values."
-  | Cil.StartOf l -> lookup (eval_lv ~spec pid l mem) mem
+  | Cil.StartOf l -> lookup (eval_lv ~spec pid l mem (failwith "TODO")) mem
 
 
 let eval_list : Spec.t -> Proc.t -> Cil.exp list -> Mem.t -> Val.t list
@@ -259,7 +259,7 @@ let rec prune_simple : update_mode -> Spec.t -> Global.t -> Proc.t -> exp -> Mem
   match cond with
   | BinOp (op, Lval x, e, t)
     when op = Lt || op = Gt || op = Le || op = Ge || op = Eq || op = Ne ->
-    let x_lv = eval_lv ~spec pid x mem in
+    let x_lv = eval_lv ~spec pid x mem (failwith "TODO") in
     if PowLoc.cardinal x_lv = 1 then
       let x_v = lookup x_lv mem in
       let e_v = eval ~spec pid e mem (failwith "TODO") |> Val.itv_of_val in
@@ -275,7 +275,7 @@ let rec prune_simple : update_mode -> Spec.t -> Global.t -> Proc.t -> exp -> Mem
     let mem2 = prune_simple mode spec global pid e2 mem in
     if op = LAnd then Mem.meet mem1 mem2 else Mem.join mem1 mem2
   | UnOp (LNot, Lval x, _) ->
-    let x_lv = eval_lv ~spec pid x mem in
+    let x_lv = eval_lv ~spec pid x mem (failwith "TODO") in
     if PowLoc.cardinal x_lv = 1 then
       let x_v = lookup x_lv mem in
       let x_itv = Val.itv_of_val x_v in
@@ -285,7 +285,7 @@ let rec prune_simple : update_mode -> Spec.t -> Global.t -> Proc.t -> exp -> Mem
       update mode spec global x_lv x_pruned mem
     else mem
   | Lval x ->
-    let x_lv = eval_lv ~spec pid x mem in
+    let x_lv = eval_lv ~spec pid x mem (failwith "TODO") in
     if PowLoc.cardinal x_lv = 1 then
       let x_v = lookup x_lv mem in
       let x_itv = Val.itv_of_val x_v in
@@ -330,7 +330,7 @@ let model_alloc_one mode spec pid lvo f (mem, global) =
     let allocsite = Allocsite.allocsite_of_ext (Some f.vname) in
     let arr_val = ItvDom.Val.of_array (ArrayBlk.make allocsite Itv.zero Itv.one Itv.one Itv.nat) in
     let ext_loc = PowLoc.singleton (Loc.of_allocsite allocsite) in
-    let mem = update mode spec global (eval_lv ~spec pid lv mem) arr_val mem in
+    let mem = update mode spec global (eval_lv ~spec pid lv mem (failwith "TODO")) arr_val mem in
     let mem = update mode spec global ext_loc Val.itv_top mem in
     (mem,global)
 
@@ -341,7 +341,7 @@ let model_realloc mode spec node (lvo, exps) (mem, global) =
     begin
       match exps with
       | _::size::_ ->
-        (update mode spec global (eval_lv ~spec pid lv mem) (eval_array_alloc ~spec node size false mem) mem, global)
+        (update mode spec global (eval_lv ~spec pid lv mem (failwith "TODO")) (eval_array_alloc ~spec node size false mem) mem, global)
       | _ -> raise (Failure "Error: arguments of realloc are not given")
     end
   | _ -> (mem,global)
@@ -354,7 +354,7 @@ let model_calloc mode spec node (lvo, exps) (mem, global) =
       match exps with
       | n::size::_ ->
         let new_size = Cil.BinOp (Cil.Mult, n, size, Cil.uintType) in
-        (update mode spec global (eval_lv ~spec pid lv mem) (eval_array_alloc ~spec node new_size false mem) mem, global)
+        (update mode spec global (eval_lv ~spec pid lv mem (failwith "TODO")) (eval_array_alloc ~spec node new_size false mem) mem, global)
       | _ -> raise (Failure "Error: arguments of realloc are not given")
     end
   | _ -> (mem,global)
@@ -365,7 +365,7 @@ let model_scanf mode spec pid exps (mem, global) =
       List.fold_left (fun (mem, global) e ->
           match e with
             Cil.AddrOf lv ->
-              let mem = update mode spec global (eval_lv ~spec pid lv mem) Val.itv_top mem in
+              let mem = update mode spec global (eval_lv ~spec pid lv mem (failwith "TODO")) Val.itv_top mem in
               (mem, global)
           | _ -> (mem,global)) (mem,global) t
   | _ -> (mem, global)
@@ -383,7 +383,7 @@ let model_strdup mode spec node (lvo, exps) (mem, global) =
     let arr_val = ArrayBlk.make allocsite Itv.zero (Itv.minus size offset) Itv.one null_pos in
     let loc = PowLoc.singleton (Loc.of_allocsite allocsite) in
     let v = Val.join (Val.of_array arr_val) (Val.of_pow_loc loc) in
-    let mem = update mode spec global (eval_lv ~spec pid lv mem) v mem in
+    let mem = update mode spec global (eval_lv ~spec pid lv mem (failwith "TODO")) v mem in
     let mem = update mode spec global loc (lookup allocsites mem) mem in
     (mem,global)
   | _ -> (mem,global)
@@ -394,7 +394,7 @@ let model_input mode spec pid lvo (mem, global) =
       let allocsite = Allocsite.allocsite_of_ext None in
       let ext_v = Val.external_value allocsite in
       let ext_loc = PowLoc.singleton (Loc.of_allocsite allocsite) in
-      let mem = update mode spec global (eval_lv ~spec pid lv mem) ext_v mem in
+      let mem = update mode spec global (eval_lv ~spec pid lv mem (failwith "TODO")) ext_v mem in
       let mem = update mode spec global ext_loc Val.itv_top mem in
         (mem,global)
   | _ -> (mem,global)
@@ -402,7 +402,7 @@ let model_input mode spec pid lvo (mem, global) =
 let model_assign mode spec pid (lvo,exps) (mem, global) =
   match (lvo,exps) with
     (Some lv, e::_) ->
-      (update mode spec global (eval_lv ~spec pid lv mem) (eval ~spec pid e mem (failwith "TODO")) mem, global)
+      (update mode spec global (eval_lv ~spec pid lv mem (failwith "TODO")) (eval ~spec pid e mem (failwith "TODO")) mem, global)
   | (_, _) -> (mem,global)
 
 
@@ -412,14 +412,14 @@ let model_strlen mode spec pid (lvo, exps) (mem, global) =
     let str_val = eval ~spec pid str mem (failwith "TODO") in
     let null_pos = ArrayBlk.nullof (ItvDom.Val.array_of_val str_val) in
     let v = Val.of_itv (Itv.meet Itv.nat null_pos) in
-    (update mode spec global (eval_lv ~spec pid lv mem) v mem, global)
+    (update mode spec global (eval_lv ~spec pid lv mem (failwith "TODO")) v mem, global)
   | _ -> (mem,global)
 
 let rec model_fgets mode spec pid (lvo, exps) (mem, global) =
   match (lvo, exps) with
   | (_, Lval buf::size::_) | (_, StartOf buf::size::_) ->
     let size_itv = eval ~spec pid size mem (failwith "TODO") |> ItvDom.Val.itv_of_val in
-    let buf_lv = eval_lv ~spec pid buf mem in
+    let buf_lv = eval_lv ~spec pid buf mem (failwith "TODO") in
     let buf_arr = lookup buf_lv mem |> ItvDom.Val.array_of_val in
     let allocsites = ArrayBlk.pow_loc_of_array buf_arr in
     let buf_val = ArrayBlk.set_null_pos buf_arr (Itv.join Itv.zero size_itv) |> ItvDom.Val.of_array in
@@ -435,21 +435,21 @@ let rec model_sprintf mode spec pid (lvo, exps) (mem, global) =
   | Lval buf::str::[] | StartOf buf::str::[] ->  (* format string *)
     let str_val = eval ~spec pid str mem (failwith "TODO") |> ItvDom.Val.array_of_val in
     let (arrays, null_pos) = (ArrayBlk.pow_loc_of_array str_val, ArrayBlk.nullof str_val) in
-    let buf_lv = eval_lv ~spec pid buf mem in
+    let buf_lv = eval_lv ~spec pid buf mem (failwith "TODO") in
     let buf_arr = lookup buf_lv mem |> ItvDom.Val.array_of_val in
     let allocsites = ArrayBlk.pow_loc_of_array buf_arr in
     let buf_val = ArrayBlk.set_null_pos buf_arr null_pos |> ItvDom.Val.of_array in
     mem
     |> update mode spec global buf_lv buf_val
     |> update mode spec global allocsites (lookup arrays mem)
-    |> (match lvo with Some lv -> update mode spec global (eval_lv ~spec pid lv mem) (Val.of_itv null_pos) | _ -> id)
+    |> (match lvo with Some lv -> update mode spec global (eval_lv ~spec pid lv mem (failwith "TODO")) (Val.of_itv null_pos) | _ -> id)
     |> (fun mem -> (mem, global))
   | CastE (_, buf)::str::[]
   | buf::CastE (_, str)::[] -> model_sprintf mode spec pid (lvo, buf::str::[]) (mem, global)
   | _ ->
     begin
       match lvo with
-        Some lv -> (update mode spec global (eval_lv ~spec pid lv mem) (Val.of_itv Itv.nat) mem, global)
+        Some lv -> (update mode spec global (eval_lv ~spec pid lv mem (failwith "TODO")) (Val.of_itv Itv.nat) mem, global)
       | _ -> (mem,global)
     end
 
@@ -461,8 +461,8 @@ let sparrow_arg mode spec pid exps (mem,global) =
       let argv_v = Val.of_array (ArrayBlk.input argv_a) in
       let arg_a = Allocsite.allocsite_of_ext (Some "arg") in
       let arg_v = Val.of_array (ArrayBlk.input arg_a) in
-      (update mode spec global (eval_lv ~spec pid argc mem) (Val.of_itv Itv.pos) mem
-      |> update mode spec global (eval_lv ~spec pid argv mem) argv_v
+      (update mode spec global (eval_lv ~spec pid argc mem (failwith "TODO")) (Val.of_itv Itv.pos) mem
+      |> update mode spec global (eval_lv ~spec pid argv mem (failwith "TODO")) argv_v
       |> update mode spec global (PowLoc.singleton (Loc.of_allocsite argv_a)) arg_v
       |> update mode spec global (PowLoc.singleton (Loc.of_allocsite arg_a)) (Val.of_itv Itv.top), global)
   | _ -> (mem,global)
@@ -473,8 +473,8 @@ let sparrow_opt mode spec pid exps (mem,global) =
     (Cil.Lval optind)::(Cil.Lval optarg)::_ ->
       let arg_a = Allocsite.allocsite_of_ext (Some "arg") in
       let arg_v = Val.of_array (ArrayBlk.input arg_a) in
-      (update mode spec global (eval_lv ~spec pid optind mem) (Val.of_itv Itv.nat) mem
-      |> update mode spec global (eval_lv ~spec pid optarg mem) arg_v
+      (update mode spec global (eval_lv ~spec pid optind mem (failwith "TODO")) (Val.of_itv Itv.nat) mem
+      |> update mode spec global (eval_lv ~spec pid optarg mem (failwith "TODO")) arg_v
       |> update mode spec global (PowLoc.singleton (Loc.of_allocsite arg_a)) (Val.of_itv Itv.top), global)
   | _ -> (mem,global)
 
@@ -486,13 +486,13 @@ let model_unknown mode spec node pid lvo f exps (mem, global) =
                     Val.of_itv Itv.nat
                   else Val.of_itv Itv.top
       in
-      let mem = update mode spec global (eval_lv ~spec pid lv mem) ext_v mem in
+      let mem = update mode spec global (eval_lv ~spec pid lv mem (failwith "TODO")) ext_v mem in
       (mem,global)
   | Some lv ->
       let allocsite = Allocsite.allocsite_of_ext (Some f.vname) in
       let ext_v = ArrayBlk.extern allocsite |> ArrayBlk.cast_array (Cil.typeOfLval lv) |> Val.of_array in
       let ext_loc = PowLoc.singleton (Loc.of_allocsite allocsite) in
-      let mem = update mode spec global (eval_lv ~spec pid lv mem) ext_v mem in
+      let mem = update mode spec global (eval_lv ~spec pid lv mem (failwith "TODO")) ext_v mem in
       let mem = update mode spec global ext_loc Val.itv_top mem in
       (mem,global)
 
@@ -505,14 +505,14 @@ let model_memcpy mode spec pid (lvo, exps) (mem, global) =
       in
       mem
       |> update mode spec global dst_l (lookup src_l mem)
-      |> update mode spec global (eval_lv ~spec pid lv mem) dst_v
+      |> update mode spec global (eval_lv ~spec pid lv mem (failwith "TODO")) dst_v
       |> (fun mem -> (mem, global))
   | _, _ -> (mem, global)
 
 let model_getpwent mode spec node pid lvo f (mem,global) =
   match lvo, f.vtype with
     Some lv, Cil.TFun ((Cil.TPtr ((Cil.TComp (comp, _) as elem_t), _) as ptr_t), _, _, _) ->
-      let struct_loc = eval_lv ~spec pid lv mem in
+      let struct_loc = eval_lv ~spec pid lv mem (failwith "TODO") in
       let struct_v = eval_array_alloc ~spec node (Cil.SizeOf elem_t) false mem |> Val.cast ptr_t (Cil.typeOfLval lv) in
       let field_loc = ArrayBlk.append_field (Val.array_of_val struct_v) (List.find (fun f -> f.fname ="pw_name") comp.cfields) in
       let allocsite = Allocsite.allocsite_of_ext (Some "getpwent.pw_name") in
@@ -530,11 +530,11 @@ let rec model_strcpy mode spec node pid es (mem, global) =
   | dst::(CastE(_, e))::[] -> model_strcpy mode spec node pid (dst::e::[]) (mem,global)
   | (Lval dst)::(Lval src)::[] | (StartOf dst)::(StartOf src)::[]
   | (Lval dst)::(StartOf src)::[] | (StartOf dst)::(Lval src)::[] ->
-      let src_arr = Val.array_of_val (lookup (eval_lv ~spec pid src mem) mem) in
-      let dst_arr = Val.array_of_val (lookup (eval_lv ~spec pid dst mem) mem) in
+      let src_arr = Val.array_of_val (lookup (eval_lv ~spec pid src mem (failwith "TODO")) mem) in
+      let dst_arr = Val.array_of_val (lookup (eval_lv ~spec pid dst mem (failwith "TODO")) mem) in
       let np = ArrayBlk.nullof src_arr in
       let newv = Val.of_array (ArrayBlk.set_null_pos dst_arr np) in
-      let mem = mem |> update mode spec global (eval_lv ~spec pid dst mem) newv in
+      let mem = mem |> update mode spec global (eval_lv ~spec pid dst mem (failwith "TODO")) newv in
       (mem, global)
   | _ -> (mem, global)
 
@@ -543,11 +543,11 @@ let rec model_strncpy mode spec node pid es (mem, global) =
     CastE (_, e)::t -> model_strncpy mode spec node pid (e::t) (mem, global)
   | (Lval dst)::_::size::_
   | (StartOf dst)::_::size::_ ->
-      let arr = Val.array_of_val (lookup (eval_lv ~spec pid dst mem) mem) in
+      let arr = Val.array_of_val (lookup (eval_lv ~spec pid dst mem (failwith "TODO")) mem) in
       let sz = Val.itv_of_val (eval ~spec pid size mem (failwith "TOdo")) in
       let np = Itv.join Itv.zero (Itv.minus sz Itv.one) in
       let newv = Val.of_array (ArrayBlk.set_null_pos arr np) in
-      let mem = mem |> update mode spec global (eval_lv ~spec pid dst mem) newv in
+      let mem = mem |> update mode spec global (eval_lv ~spec pid dst mem (failwith "TODO")) newv in
       (mem, global)
   | _ -> (mem,global)
 
@@ -558,11 +558,11 @@ let rec model_strcat mode spec node pid es (mem, global) =
   | dst::(CastE(_, e))::[] -> model_strcat mode spec node pid (dst::e::[]) (mem,global)
   | (Lval dst)::(Lval src)::[] | (StartOf dst)::(StartOf src)::[]
   | (Lval dst)::(StartOf src)::[] | (StartOf dst)::(Lval src)::[] ->
-      let src_arr = Val.array_of_val (lookup (eval_lv ~spec pid src mem) mem) in
-      let dst_arr = Val.array_of_val (lookup (eval_lv ~spec pid dst mem) mem) in
+      let src_arr = Val.array_of_val (lookup (eval_lv ~spec pid src mem (failwith "TODO")) mem) in
+      let dst_arr = Val.array_of_val (lookup (eval_lv ~spec pid dst mem (failwith "TODO")) mem) in
       let np = ArrayBlk.nullof src_arr in
       let newv = Val.of_array (ArrayBlk.plus_null_pos dst_arr np) in
-      let mem = mem |> update mode spec global (eval_lv ~spec pid dst mem) newv in
+      let mem = mem |> update mode spec global (eval_lv ~spec pid dst mem (failwith "TODO")) newv in
       (mem, global)
   | _ -> (mem, global)
 
@@ -570,10 +570,10 @@ let rec model_strchr mode spec node pid (lvo, exps) (mem, global) =
   match lvo, exps with
     Some _, (CastE (_, e))::t -> model_strchr mode spec node pid (lvo, e::t) (mem,global)
   | Some lv, (Lval str)::_ | Some lv, (StartOf str)::_ ->
-      let str_arr = Val.array_of_val (lookup (eval_lv ~spec pid str mem) mem) in
+      let str_arr = Val.array_of_val (lookup (eval_lv ~spec pid str mem (failwith "TODO")) mem) in
       let np = ArrayBlk.nullof str_arr in
       let newv = Val.of_array (ArrayBlk.plus_offset str_arr np) in
-      let mem = mem |> update mode spec global (eval_lv ~spec pid lv mem) newv in
+      let mem = mem |> update mode spec global (eval_lv ~spec pid lv mem (failwith "TODO")) newv in
       (mem, global)
   | _, _ -> (mem, global)
 
@@ -652,24 +652,24 @@ let run : update_mode -> Spec.t -> Node.t -> Mem.t * Global.t -> Mem.t * Global.
   let pid = Node.get_pid node in
   match InterCfg.cmdof global.icfg node with
   | IntraCfg.Cmd.Cset (l, e, loc) ->
-      (update mode spec global (eval_lv ~spec pid l mem) (eval ~spec pid e mem loc) mem, global)
+      (update mode spec global (eval_lv ~spec pid l mem (failwith "TODO")) (eval ~spec pid e mem loc) mem, global)
   | IntraCfg.Cmd.Cexternal (l, _) ->
     (match Cil.typeOfLval l with
        Cil.TInt (_, _) | Cil.TFloat (_, _) ->
          let ext_v = Val.of_itv Itv.top in
-         let mem = update mode spec global (eval_lv ~spec pid l mem) ext_v mem in
+         let mem = update mode spec global (eval_lv ~spec pid l mem (failwith "TODO")) ext_v mem in
          (mem,global)
      | _ ->
        let allocsite = Allocsite.allocsite_of_ext None in
        let ext_v = Val.external_value allocsite in
        let ext_loc = PowLoc.singleton (Loc.of_allocsite allocsite) in
-       let mem = update mode spec global (eval_lv ~spec pid l mem) ext_v mem in
+       let mem = update mode spec global (eval_lv ~spec pid l mem (failwith "TODO")) ext_v mem in
        let mem = update mode spec global ext_loc ext_v mem in
         (mem,global))
   | IntraCfg.Cmd.Calloc (l, IntraCfg.Cmd.Array e, is_static, loc) ->
-    (update mode spec global (eval_lv ~spec pid l mem) (eval_array_alloc ~spec node e is_static mem) mem, global)
+    (update mode spec global (eval_lv ~spec pid l mem (failwith "TODO")) (eval_array_alloc ~spec node e is_static mem) mem, global)
   | IntraCfg.Cmd.Calloc (l, IntraCfg.Cmd.Struct s, is_static, loc) ->
-    let lv = eval_lv ~spec pid l mem in
+    let lv = eval_lv ~spec pid l mem (failwith "TODO") in
     (update mode spec global lv (eval_struct_alloc lv s) mem, global)
   | IntraCfg.Cmd.Csalloc (l, s, loc) ->
     let str_loc =
@@ -677,12 +677,12 @@ let run : update_mode -> Spec.t -> Node.t -> Mem.t * Global.t -> Mem.t * Global.
       |> Loc.of_allocsite |> PowLoc.singleton
     in
     mem
-    |> update mode spec global (eval_lv ~spec pid l mem) (eval_string_alloc node s mem)
+    |> update mode spec global (eval_lv ~spec pid l mem (failwith "TODO")) (eval_string_alloc node s mem)
     |> update mode spec global str_loc (eval_string s)
     |> (fun mem -> (mem, global))
   | IntraCfg.Cmd.Cfalloc (l, fd, _) ->
     let clos = Val.of_pow_proc (PowProc.singleton fd.svar.vname) in
-    (update mode spec global (eval_lv ~spec pid l mem) clos mem, global)
+    (update mode spec global (eval_lv ~spec pid l mem (failwith "TODO")) clos mem, global)
   | IntraCfg.Cmd.Cassume (e, _) ->
     let _ = eval ~spec pid e mem in (* for inspection *)
     (prune mode spec global pid e mem, global)
@@ -712,7 +712,7 @@ let run : update_mode -> Spec.t -> Node.t -> Mem.t * Global.t -> Mem.t * Global.
            let retvar_set = PowProc.fold retvars_of_proc fs PowLoc.empty in
            let _ = Mem.lookup retvar_set mem in
            PowProc.fold (fun f d ->
-              Dump.weak_add f (eval_lv ~spec pid lv mem) d
+              Dump.weak_add f (eval_lv ~spec pid lv mem (failwith "TODO")) d
            ) fs global.dump in
       let mem = bind_arg_lvars_set mode spec global arg_lvars_set arg_vals mem in
       (mem, { global with dump })
@@ -730,7 +730,7 @@ let run : update_mode -> Spec.t -> Node.t -> Mem.t * Global.t -> Mem.t * Global.
         let retvar_set = PowProc.fold (fun f ->
           let ret = Loc.return_var f (Cil.typeOfLval lv) in
           PowLoc.add ret) callees PowLoc.empty in
-        update Weak spec global (eval_lv ~spec pid lv mem) (lookup retvar_set mem) mem
+        update Weak spec global (eval_lv ~spec pid lv mem (failwith "TODO")) (lookup retvar_set mem) mem
      | _ -> mem)
     |> (fun mem -> (mem, global))
   | IntraCfg.Cmd.Cskip -> (mem, global)

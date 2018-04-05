@@ -73,7 +73,7 @@ let inspect_aexp : PackConf.t -> InterCfg.node -> AlarmExp.t -> ItvDom.Mem.t ->
   end);
   (match aexp with
   | ArrayExp (lv,e,loc) ->
-      let v1 = ItvDom.Mem.lookup (ItvSem.eval_lv (InterCfg.Node.get_pid node) lv ptrmem) ptrmem in
+      let v1 = ItvDom.Mem.lookup (ItvSem.eval_lv (InterCfg.Node.get_pid node) lv ptrmem (failwith "TODO")) ptrmem in
       let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem (failwith "TODO") in
       check packconf pid v1 (Some v2) (Some e) ptrmem mem
       |> List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc;
@@ -149,8 +149,8 @@ let inspect_alarm : Global.t -> Spec.t -> Table.t -> Report.query list
 let sparrow_relation_set pid mem exps rel =
   match exps with
     (Cil.Lval x)::(Cil.Lval y)::_ ->
-      let lv_x = ItvSem.eval_lv pid x mem in
-      let lv_y = ItvSem.eval_lv pid y mem in
+      let lv_x = ItvSem.eval_lv pid x mem (failwith "TODO") in
+      let lv_y = ItvSem.eval_lv pid y mem (failwith "TODO") in
       PowLoc.fold (fun x ->
           PowLoc.fold (fun y ->
             OctImpactDom.Relation.add_edge (OctLoc.of_loc x) (OctLoc.of_loc y)) lv_y) lv_x rel
@@ -161,7 +161,7 @@ let sparrow_relation_malloc pid mem exps rel =
   match exps with
     x::(Cil.Lval y)::_ ->
       let lv_x = ItvSem.eval pid x mem (failwith "TODO") |> ItvDom.Val.allocsites_of_val in
-      let lv_y = ItvSem.eval_lv pid y mem in
+      let lv_y = ItvSem.eval_lv pid y mem (failwith "TODO") in
       BatSet.fold (fun x ->
           PowLoc.fold (fun y ->
             OctImpactDom.Relation.add_edge (OctLoc.of_size x) (OctLoc.of_loc y)) lv_y) lv_x rel
@@ -171,7 +171,7 @@ let sparrow_relation_malloc pid mem exps rel =
 let sparrow_relation_strlen pid mem exps rel =
   match exps with
     (Cil.Lval x)::y::_ ->
-      let lv_x = ItvSem.eval_lv pid x mem in
+      let lv_x = ItvSem.eval_lv pid x mem (failwith "TODO") in
       let lv_y = ItvSem.eval pid y mem (failwith "TODO") |> ItvDom.Val.allocsites_of_val in
       PowLoc.fold (fun x ->
           BatSet.fold (fun y ->

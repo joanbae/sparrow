@@ -44,7 +44,7 @@ let check pid v1 v2opt v2exp ptrmem mem : (AbsOct.t option * Allocsite.t option 
            Some (Cil.Lval x), size
          | Some (Cil.BinOp (_, Cil.Lval x, Cil.Const _, _)), size
             when Itv.lower size >0 && Itv.lower offset >= 0 ->
-            let idx_set = ItvSem.eval_lv pid x ptrmem in
+            let idx_set = ItvSem.eval_lv pid x ptrmem (failwith "TODO") in
             if PowLoc.cardinal idx_set = 1 then
               let idx = PowLoc.choose idx_set |> OctLoc.of_loc in
               let absoct = Mem.lookup mem in
@@ -63,7 +63,7 @@ let inspect_aexp : InterCfg.node -> AlarmExp.t -> ItvDom.Mem.t -> Mem.t
   let pid = InterCfg.Node.get_pid node in
   (match aexp with
   | ArrayExp (lv,e,loc) ->
-      let v1 = ItvDom.Mem.lookup (ItvSem.eval_lv (InterCfg.Node.get_pid node) lv ptrmem) ptrmem in
+      let v1 = ItvDom.Mem.lookup (ItvSem.eval_lv (InterCfg.Node.get_pid node) lv ptrmem (failwith "TODO")) ptrmem in
       let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem (failwith "TODO") in
       check pid v1 (Some v2) (Some e) ptrmem mem
       |> List.map (fun (status,a,desc) ->

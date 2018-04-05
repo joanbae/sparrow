@@ -86,7 +86,7 @@ let inspect_aexp_bo : InterCfg.node -> AlarmExp.t -> Mem.t -> query list -> quer
 =fun node aexp mem queries ->
   (match aexp with
     | ArrayExp (lv,e,loc) ->
-        let v1 = Mem.lookup (ItvSem.eval_lv (InterCfg.Node.get_pid node) lv mem) mem in
+        let v1 = Mem.lookup (ItvSem.eval_lv (InterCfg.Node.get_pid node) lv mem (failwith "TODO")) mem in
         let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e mem (failwith "Todo") in
         let lst = check_bo v1 (Some v2) in
         List.map (fun (status,a,desc) ->
