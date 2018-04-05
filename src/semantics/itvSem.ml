@@ -74,7 +74,7 @@ let eval_uop : Spec.t -> Cil.unop -> Val.t -> Cil.location -> Val.t
 = fun spec u v loc ->
   if Val.eq v Val.bot then Val.bot else
     let itv = Val.itv_of_val v in
-    let fp = Footprints.of_here [%here] in
+    let fp = Footprints.of_here [%here] loc in
     let itv' =
       match u with
       | Cil.Neg -> Itv.minus (Itv.of_int 0) itv
@@ -141,8 +141,8 @@ let rec resolve_offset : Spec.t -> Proc.t -> Val.t -> Cil.offset -> Mem.t -> Pow
     let arr = lookup ploc mem |> Val.array_of_val in
     let _ = eval ~spec pid e mem in (* NOTE: to sync with access function *)
     resolve_offset spec pid (ArrayBlk.pow_loc_of_array arr |> Val.of_pow_loc)  os' mem
-and eval_lv ?(spec=Spec.empty) : Proc.t -> Cil.lval -> Mem.t -> PowLoc.t
-= fun pid lv mem ->
+and eval_lv ?(spec=Spec.empty) : Proc.t -> Cil.lval -> Mem.t -> Cil.location -> PowLoc.t * Cil.location
+= fun pid lv mem loc ->
   let v =
     match fst lv with
     | Cil.Var vi ->
@@ -150,9 +150,9 @@ and eval_lv ?(spec=Spec.empty) : Proc.t -> Cil.lval -> Mem.t -> PowLoc.t
       |> PowLoc.singleton
       |> Val.of_pow_loc
     | Cil.Mem e ->
-      eval ~spec pid e mem (failwith "ToDO")
+      eval ~spec pid e mem loc 
   in
-  PowLoc.remove Loc.null (resolve_offset spec pid v (snd lv) mem)
+  PowLoc.remove Loc.null (resolve_offset spec pid v (snd lv) mem) 
 
 and var_of_varinfo vi pid  =
   if vi.Cil.vglob then Loc.of_gvar vi.Cil.vname vi.Cil.vtype
