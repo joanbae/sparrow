@@ -59,17 +59,17 @@ let eval_const : Cil.constant -> Cil.location -> Val.t = fun cst loc ->
   match cst with
   | Cil.CInt64 (i64, _, _) ->
     let itv = try Itv.of_int (Cil.i64_to_int i64) with _ -> Itv.top in
-    Val.modify_footprints [%here] loc (Footprints.of_here here loc) (Val.of_itv itv)
+    Val.modify_footprints [%here] loc (Val.of_itv itv)
   | Cil.CStr s -> Val.modify_footprints [%here] loc (Val.of_itv Itv.top)
-  | Cil.CWStr s -> Val.modify_footprints (Footprints.of_here [%here] loc) (Val.of_itv Itv.top)
-  | Cil.CChr c -> Val.modify_footprints (Footprints.of_here [%here] loc) (Val.of_itv (Itv.of_int (int_of_char c)))
+  | Cil.CWStr s -> Val.modify_footprints [%here] loc (Val.of_itv Itv.top)
+  | Cil.CChr c -> Val.modify_footprints [%here] loc (Val.of_itv (Itv.of_int (int_of_char c)))
   (* Float numbers are modified to itvs.  If you want to make a
      precise and sound analysis for float numbers, you have to
      develop a domain for them. *)
   | Cil.CReal (f, _, _) ->
-   Val.modify_footprints (Footprints.of_here [%here] loc) (Val.of_itv (Itv.of_ints (int_of_float (floor f)) (int_of_float (ceil f))))
+   Val.modify_footprints [%here] loc (Val.of_itv (Itv.of_ints (int_of_float (floor f)) (int_of_float (ceil f))))
   (* Enum is not evaluated correctly in our analysis. *)
-  | Cil.CEnum _ -> Val.modify_footprints (Footprints.of_here [%here] loc) (Val.of_itv Itv.top)
+  | Cil.CEnum _ -> Val.modify_footprints [%here] loc (Val.of_itv Itv.top)
 
 let eval_uop : Spec.t -> Cil.unop -> Val.t -> Cil.location -> Val.t
 = fun spec u v loc ->
@@ -82,55 +82,76 @@ let eval_uop : Spec.t -> Cil.unop -> Val.t -> Cil.location -> Val.t
       | Cil.LNot -> Itv.l_not itv, [%here]
       | Cil.BNot -> if spec.Spec.unsound_bitwise then (Itv.bot, [%here]) else (Itv.unknown_unary itv, [%here])
     in
-    let fp = FP.join fp (FP.of_here here loc) in
-    let v = Val.join (Val.of_itv itv') (Val.of_footprints fp) in
-    Val.modify_footprints [%here] loc v
+    Val.modify_footprints here loc (Val.join (Val.of_footprints fp) (Val.of_itv itv'))
 
 let eval_bop : Spec.t -> Cil.binop -> Val.t -> Val.t -> Cil.location -> Val.t
-= fun spec b v1 v2 loc ->
-  match b with
-  | Cil.PlusA ->
-    let itv1, fp1 = Val.itv_of_val v1, Val.footprints_of_val v1 in
-    let itv2, fp2 = Val.itv_of_val v2, Val.footprints_of_val v2 in
-    let v = Val.join (Val.of_itv (Itv.plus itv1 itv2)) (Val.of_footprints (FP.join fp1 fp2)) in
-    Val.modify_footprints [%here] loc v
-  | Cil.PlusPI
-  | Cil.IndexPI ->
+  = fun spec b v1 v2 loc ->
+    let fp = Val.of_footprints (FP.join (Val.footprints_of_val v1) (Val.footprints_of_val v2)) in
+    match b with
+    | Cil.PlusA ->
+      let v = Val.of_itv (Itv.plus (Val.itv_of_val v1) (Val.itv_of_val v2)) in
+      Val.modify_footprints [%here] loc (Val.join v fp)
+    | Cil.PlusPI
+    | Cil.IndexPI ->
+      let ablk = Val.array_of_val v1 in
+      let offset = Val.itv_of_val v2 in
+      let ablk = ArrayBlk.plus_offset ablk offset in
+      let v = Val.join (Val.of_pow_loc (Val.pow_loc_of_val v1)) (Val.of_array ablk) in
+      Val.modify_footprints [%here] loc (Val.join v fp)
+  | Cil.MinusA ->
+    let v = Val.of_itv (Itv.minus (Val.itv_of_val v1) (Val.itv_of_val v2)) in
+    Val.modify_footprints [%here] loc (Val.join v fp)
+  | Cil.MinusPI ->
     let ablk = Val.array_of_val v1 in
     let offset = Val.itv_of_val v2 in
-    let ablk = ArrayBlk.plus_offset ablk offset in
-    let v = Val.join (Val.of_pow_loc (Val.pow_loc_of_val v1)) (Val.of_array ablk) in
-    Val.modify_footprints [%here] loc v 
-  | Cil.MinusA ->
-    let itv1, fp1 = Val.itv_of_val v1, Val.footprints_of_val v1 in
-    let itv2, fp2 = Val.itv_of_val v2, Val.footprints_of_val v2 in
-    let v = Val.join (Val.of_itv (Itv.minus itv1 itv2)) (Val.of_footprints (FP.join fp1 fp2)) in
-    Val.modify_footprints [%here] loc v
-  | Cil.MinusPI ->
-    let ablk, fp1 = Val.array_of_val v1, Val.footprints_of_val v1 in
-    let offset, fp2 = Val.itv_of_val v2, Val.footprints_of_val v2 in
     let ablk = ArrayBlk.minus_offset ablk offset in
-    Val.join (Val.of_pow_loc (Val.pow_loc_of_val v1)) (Val.of_array ablk)
+    let v = Val.join (Val.of_pow_loc (Val.pow_loc_of_val v1)) (Val.of_array ablk) in
+    Val.modify_footprints [%here] loc (Val.join v fp)
   | Cil.MinusPP ->
     let offset1 = Val.array_of_val v1 |> ArrayBlk.offsetof in
     let offset2 = Val.array_of_val v2 |> ArrayBlk.offsetof in
-    Itv.minus offset1 offset2 |> Val.of_itv
-  | Cil.Mult -> Val.of_itv (Itv.times (Val.itv_of_val v1) (Val.itv_of_val v2))
-  | Cil.Div -> Val.of_itv (Itv.divide (Val.itv_of_val v1) (Val.itv_of_val v2))
-  | Cil.Lt -> Val.of_itv (Itv.lt_itv (Val.itv_of_val v1) (Val.itv_of_val v2))
-  | Cil.Gt -> Val.of_itv (Itv.gt_itv (Val.itv_of_val v1) (Val.itv_of_val v2))
-  | Cil.Le -> Val.of_itv (Itv.le_itv (Val.itv_of_val v1) (Val.itv_of_val v2))
-  | Cil.Ge -> Val.of_itv (Itv.ge_itv (Val.itv_of_val v1) (Val.itv_of_val v2))
-  | Cil.Eq -> Val.of_itv (Itv.eq_itv (Val.itv_of_val v1) (Val.itv_of_val v2))
-  | Cil.Ne -> Val.of_itv (Itv.ne_itv (Val.itv_of_val v1) (Val.itv_of_val v2))
-  | Cil.LAnd -> Val.of_itv (Itv.l_and (Val.itv_of_val v1) (Val.itv_of_val v2))
-  | Cil.LOr -> Val.of_itv (Itv.l_or (Val.itv_of_val v1) (Val.itv_of_val v2))
+    let v = Itv.minus offset1 offset2 |> Val.of_itv in
+    Val.modify_footprints [%here] loc (Val.join v fp)
+  | Cil.Mult ->
+    let v = Val.of_itv (Itv.times (Val.itv_of_val v1) (Val.itv_of_val v2)) in
+    Val.modify_footprints [%here] loc (Val.join v fp)
+  | Cil.Div ->
+    let v = Val.of_itv (Itv.divide (Val.itv_of_val v1) (Val.itv_of_val v2)) in
+    Val.modify_footprints [%here] loc (Val.join v fp)
+  | Cil.Lt ->
+    let v = Val.of_itv (Itv.lt_itv (Val.itv_of_val v1) (Val.itv_of_val v2)) in
+    Val.modify_footprints [%here] loc (Val.join v fp)   
+  | Cil.Gt ->
+    let v = Val.of_itv (Itv.gt_itv (Val.itv_of_val v1) (Val.itv_of_val v2)) in
+    Val.modify_footprints [%here] loc (Val.join v fp) 
+  | Cil.Le ->
+    let v = Val.of_itv (Itv.le_itv (Val.itv_of_val v1) (Val.itv_of_val v2)) in
+    Val.modify_footprints [%here] loc (Val.join v fp) 
+  | Cil.Ge ->
+    let v = Val.of_itv (Itv.ge_itv (Val.itv_of_val v1) (Val.itv_of_val v2)) in
+    Val.modify_footprints [%here] loc (Val.join v fp) 
+  | Cil.Eq ->
+    let v = Val.of_itv (Itv.eq_itv (Val.itv_of_val v1) (Val.itv_of_val v2)) in
+    Val.modify_footprints [%here] loc (Val.join v fp) 
+  | Cil.Ne ->
+    let v = Val.of_itv (Itv.ne_itv (Val.itv_of_val v1) (Val.itv_of_val v2)) in
+    Val.modify_footprints [%here] loc (Val.join v fp) 
+  | Cil.LAnd ->
+    let v = Val.of_itv (Itv.l_and (Val.itv_of_val v1) (Val.itv_of_val v2)) in
+    Val.modify_footprints [%here] loc (Val.join v fp) 
+  | Cil.LOr ->
+    let v  = Val.of_itv (Itv.l_or (Val.itv_of_val v1) (Val.itv_of_val v2)) in
+    Val.modify_footprints [%here] loc (Val.join v fp) 
   | Cil.Shiftlt ->
-    if spec.Spec.unsound_bitwise then v1
-    else Val.of_itv (Itv.l_shift (Val.itv_of_val v1) (Val.itv_of_val v2))
+    if spec.Spec.unsound_bitwise then Val.modify_footprints [%here] loc v1
+    else
+      let v = Val.of_itv (Itv.l_shift (Val.itv_of_val v1) (Val.itv_of_val v2)) in
+      Val.modify_footprints [%here] loc (Val.join v fp)
   | Cil.Shiftrt | Cil.Mod | Cil.BAnd | Cil.BXor | Cil.BOr ->
-    if spec.Spec.unsound_bitwise then v1
-    else Val.of_itv (Itv.unknown_binary (Val.itv_of_val v1) (Val.itv_of_val v2))
+    if spec.Spec.unsound_bitwise then Val.modify_footprints [%here] loc v1
+    else
+      let v = Val.of_itv (Itv.unknown_binary (Val.itv_of_val v1) (Val.itv_of_val v2)) in
+      Val.modify_footprints [%here] loc (Val.join v fp)
 
 let rec resolve_offset : Spec.t -> Proc.t -> Val.t -> Cil.offset -> Mem.t -> PowLoc.t
 = fun spec pid v os mem ->
@@ -153,19 +174,21 @@ let rec resolve_offset : Spec.t -> Proc.t -> Val.t -> Cil.offset -> Mem.t -> Pow
     let arr = lookup ploc mem |> Val.array_of_val in
     let _ = eval ~spec pid e mem in (* NOTE: to sync with access function *)
     resolve_offset spec pid (ArrayBlk.pow_loc_of_array arr |> Val.of_pow_loc)  os' mem
+
 and eval_lv ?(spec=Spec.empty) : Proc.t -> Cil.lval -> Mem.t -> Cil.location -> PowLoc.t * Footprints.t
   = fun pid lv mem loc ->
-    let v =
+    let v, here =
       match fst lv with
       | Cil.Var vi ->
-        var_of_varinfo vi pid
-        |> PowLoc.singleton
-        |> Val.of_pow_loc
+        let l =  var_of_varinfo vi pid
+                 |> PowLoc.singleton
+                 |> Val.of_pow_loc in
+        (l, [%here])
       | Cil.Mem e ->
-        eval ~spec pid e mem loc 
+        (eval ~spec pid e mem loc, [%here])
     in
     let powloc = PowLoc.remove Loc.null (resolve_offset spec pid v (snd lv) mem) in
-    let fp = Footprints.join (Footprints.of_here [%here] loc) (Val.footprints_of_val v) in
+    let fp = Footprints.join (Footprints.of_here here loc) (Val.footprints_of_val v) in
     (powloc, fp)
 
 and var_of_varinfo vi pid  =
@@ -175,79 +198,74 @@ and var_of_varinfo vi pid  =
 and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> Val.t
 = fun pid e mem loc ->
   match e with
-  | Cil.Const c -> 
-    let const = eval_const c loc in
-    let fp = Footprints.join (Val.footprints_of_val const) (Footprints.of_here [%here] loc) in
-    Val.modify_footprints fp const
+  | Cil.Const c -> Val.modify_footprints [%here] loc (eval_const c loc)
   | Cil.Lval l ->
     let powloc, fp = eval_lv ~spec pid l mem loc in
-    let fp' = Footprints.join fp (Footprints.of_here [%here] loc) in
-    Val.modify_footprints fp' (lookup powloc mem)
+    Val.modify_footprints' [%here] fp loc (lookup powloc mem)
   | Cil.SizeOf t ->
-    let sizeOf = Val.of_itv (try CilHelper.byteSizeOf t |> Itv.of_int with _ -> Itv.pos) in
-    let fp = Footprints.of_here [%here] loc in
-    Val.modify_footprints fp sizeOf
+    let sizeOf, here =
+      Val.of_itv (try CilHelper.byteSizeOf t |> Itv.of_int with _ -> Itv.pos), [%here] in
+    Val.modify_footprints here loc sizeOf
   | Cil.SizeOfE e ->
-    let sizeOfE = Val.of_itv (try CilHelper.byteSizeOf (Cil.typeOf e) |> Itv.of_int with _ -> Itv.pos) in
-    let fp = Footprints.of_here [%here] loc in
-    Val.modify_footprints fp sizeOfE
+    let sizeOfE, here =
+      Val.of_itv (try CilHelper.byteSizeOf (Cil.typeOf e) |> Itv.of_int with _ -> Itv.pos), [%here] in
+    Val.modify_footprints here loc sizeOfE
   | Cil.SizeOfStr s ->
-    let sizeOfStr = Val.of_itv (Itv.of_int (String.length s + 1)) in
-    let fp = Footprints.of_here [%here] loc in
-    Val.modify_footprints fp sizeOfStr
+    let sizeOfStr, here = Val.of_itv (Itv.of_int (String.length s + 1)), [%here] in
+    Val.modify_footprints here loc sizeOfStr
   | Cil.AlignOf t ->
-    let alignOf = Val.of_itv (Itv.of_int (Cil.alignOf_int t)) in
-    let fp = Footprints.of_here [%here] loc in
-    Val.modify_footprints fp alignOf
+    let alignOf, here = Val.of_itv (Itv.of_int (Cil.alignOf_int t)), [%here] in
+    Val.modify_footprints here loc alignOf
   (* TODO: type information is required for precise semantics of AlignOfE.  *)
-  | Cil.AlignOfE _ ->
-    let alignOfE = Val.of_itv Itv.top in
-    let fp = Footprints.of_here [%here] loc in
-    Val.modify_footprints fp alignOfE
+  | Cil.AlignOfE _ -> Val.modify_footprints [%here] loc (Val.of_itv Itv.top)
   | Cil.UnOp (u, e, _) ->
-    let v = eval ~spec pid e mem loc in
-    let fp = Footprints.join (Footprints.of_here [%here] loc) (Val.footprints_of_val v) in
-    eval_uop spec u (Val.modify_footprints fp v) loc
+    let v, here= (eval_uop spec u (eval ~spec pid e mem loc) loc), [%here] in
+    Val.modify_footprints here loc v
   | Cil.BinOp (b, e1, e2, _) ->
     let v1 = eval ~spec pid e1 mem loc in
     let v2 = eval ~spec pid e2 mem loc in
-    Val.footprint_join (eval_bop spec b v1 v2 loc) (Footprints.of_here [%here] loc)
+    Val.modify_footprints [%here] loc (eval_bop spec b v1 v2 loc) 
   | Cil.Question (e1, e2, e3, _) ->
     let i1 = Val.itv_of_val (eval ~spec pid e1 mem loc) in
     if Itv.is_bot i1 then
-      Val.bot
+      Val.modify_footprints [%here] loc Val.bot
     else if Itv.eq (Itv.of_int 0) i1 then
-      eval ~spec pid e3 mem loc
+      Val.modify_footprints [%here] loc (eval ~spec pid e3 mem loc)
     else if not (Itv.le (Itv.of_int 0) i1) then
-      eval ~spec pid e2 mem loc
+      Val.modify_footprints [%here] loc (eval ~spec pid e2 mem loc)
     else
-      Val.join (eval ~spec pid e2 mem loc) (eval ~spec pid e3 mem loc)
+      let v, here = Val.join (eval ~spec pid e2 mem loc) (eval ~spec pid e3 mem loc), [%here] in
+      Val.modify_footprints here loc v
   | Cil.CastE (t, e) ->
-    let v = eval ~spec pid e mem loc in
-    (try Val.cast (Cil.typeOf e) t v with _ -> v)
-  | Cil.AddrOf l -> eval_lv ~spec pid l mem (failwith "TODO") |> Val.of_pow_loc
+    let v, here = eval ~spec pid e mem loc, [%here] in
+    (try Val.modify_footprints [%here] loc (Val.cast (Cil.typeOf e) t v)
+     with _ -> Val.modify_footprints here loc v)
+  | Cil.AddrOf l ->
+    let powloc, fp = eval_lv ~spec pid l mem loc in
+    Val.modify_footprints' [%here] fp loc (Val.of_pow_loc powloc)
   | Cil.AddrOfLabel _ ->
     invalid_arg "itvSem.ml:eval AddrOfLabel mem. \
                  Analysis does not support label values."
-  | Cil.StartOf l -> lookup (eval_lv ~spec pid l mem (failwith "TODO")) mem
+  | Cil.StartOf l ->
+    let powloc, fp = eval_lv ~spec pid l mem loc in
+    Val.modify_footprints' [%here] fp loc (lookup powloc mem)
 
+let eval_list : Spec.t -> Proc.t -> Cil.exp list -> Mem.t -> Cil.location -> Val.t list
+= fun spec pid exps mem loc ->
+  List.map (fun e -> Val.modify_footprints [%here] loc (eval ~spec pid e mem loc)) exps
 
-let eval_list : Spec.t -> Proc.t -> Cil.exp list -> Mem.t -> Val.t list
-= fun spec pid exps mem ->
-  List.map (fun e -> eval ~spec pid e mem (failwith "TODO")) exps
-
-let eval_array_alloc ?(spec=Spec.empty) : Node.t -> Cil.exp -> bool -> Mem.t -> Val.t
-= fun node e is_static mem ->
+let eval_array_alloc ?(spec=Spec.empty) : Node.t -> Cil.exp -> bool -> Mem.t -> Cil.location -> Val.t
+= fun node e is_static mem loc ->
   let pid = Node.get_pid node in
   let allocsite = Allocsite.allocsite_of_node node in
   let o = Itv.of_int 0 in
-  let sz = Val.itv_of_val (eval ~spec pid e mem (failwith "TODO")) in
+  let sz = Val.itv_of_val (eval ~spec pid e mem loc) in
   (* NOTE: stride is always one when allocating memory. *)
   let st = Itv.of_int 1 in
   let np = Itv.nat in
   let pow_loc = if is_static then PowLoc.bot else PowLoc.singleton Loc.null in
   let array = ArrayBlk.make allocsite o sz st np in
-  Val.join (Val.of_pow_loc pow_loc) (Val.of_array array)
+  Val.modify_footprints [%here] loc (Val.join (Val.of_pow_loc pow_loc) (Val.of_array array))
 
 let eval_struct_alloc : PowLoc.t -> Cil.compinfo -> Val.t
 = fun lv comp ->
@@ -277,7 +295,7 @@ let rec prune_simple : update_mode -> Spec.t -> Global.t -> Proc.t -> exp -> Mem
   match cond with
   | BinOp (op, Lval x, e, t)
     when op = Lt || op = Gt || op = Le || op = Ge || op = Eq || op = Ne ->
-    let x_lv = eval_lv ~spec pid x mem (failwith "TODO") in
+    let x_lv, _ = eval_lv ~spec pid x mem (failwith "TODO") in
     if PowLoc.cardinal x_lv = 1 then
       let x_v = lookup x_lv mem in
       let e_v = eval ~spec pid e mem (failwith "TODO") |> Val.itv_of_val in
@@ -293,7 +311,7 @@ let rec prune_simple : update_mode -> Spec.t -> Global.t -> Proc.t -> exp -> Mem
     let mem2 = prune_simple mode spec global pid e2 mem in
     if op = LAnd then Mem.meet mem1 mem2 else Mem.join mem1 mem2
   | UnOp (LNot, Lval x, _) ->
-    let x_lv = eval_lv ~spec pid x mem (failwith "TODO") in
+    let x_lv, _ = eval_lv ~spec pid x mem (failwith "TODO") in
     if PowLoc.cardinal x_lv = 1 then
       let x_v = lookup x_lv mem in
       let x_itv = Val.itv_of_val x_v in
