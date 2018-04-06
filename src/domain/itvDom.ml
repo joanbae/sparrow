@@ -46,7 +46,8 @@ struct
   let modify_arr : ArrayBlk.t -> t -> t = fun a x ->
     (itv_of_val x, pow_loc_of_val x, a, struct_of_val x, pow_proc_of_val x, footprints_of_val x)
 
-  let modify_footprints : Footprints.t -> t -> t = fun f x ->
+  let modify_footprints : Lexing.position -> Cil.location -> t -> t = fun here loc x ->
+    let f = Footprints.add (Footprint.of_here here loc) (footprints_of_val x) in
     (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f)
     
   let external_value : Allocsite.t -> t = fun allocsite ->
