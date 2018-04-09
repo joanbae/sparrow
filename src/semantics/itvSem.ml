@@ -688,11 +688,13 @@ let run : update_mode -> Spec.t -> Node.t -> Mem.t * Global.t -> Mem.t * Global.
   let pid = Node.get_pid node in
   match InterCfg.cmdof global.icfg node with
   | IntraCfg.Cmd.Cset (l, e, loc) ->
-      (update mode spec global (eval_lv ~spec pid l mem (failwith "TODO")) (eval ~spec pid e mem loc) mem, global)
-  | IntraCfg.Cmd.Cexternal (l, _) ->
+    let lv, _fp = eval_lv ~spec pid l mem loc in
+      (update mode spec global lv (eval ~spec pid e mem loc) mem, global)
+  | IntraCfg.Cmd.Cexternal (l, loc) ->
     (match Cil.typeOfLval l with
-       Cil.TInt (_, _) | Cil.TFloat (_, _) ->
-         let ext_v = Val.of_itv Itv.top in
+       Cil.TInt _ | Cil.TFloat _ ->
+       let ext_v = Val.of_itv Itv.top in
+       let lv, _fp = eval_lv ~spec pid l mem (failwith "TODO")
          let mem = update mode spec global (eval_lv ~spec pid l mem (failwith "TODO")) ext_v mem in
          (mem,global)
      | _ ->

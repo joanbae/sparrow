@@ -34,7 +34,6 @@ module Val : sig
   val external_value : BasicDom.Allocsite.t -> t
   val itv_top : t
   val cast : Cil.typ -> Cil.typ -> t -> t
-  val joins : t list -> t
 end
 
 module Mem : sig
