@@ -26,6 +26,11 @@ let accessof_eval pid e mem =
   let _ = ItvSem.eval pid e mem in
   Dom.return_access ()
 
+let empty_location: Cil.location = {
+    line = -1;	  
+    file = "";    
+    byte = 0 }
+  
 type locset = PowLoc.t
 
 type feature = {
@@ -380,7 +385,7 @@ let add_used_inside_loops loc feat =
 let check_op op = op = Lt || op = Gt || op = Le || op = Ge || op = Eq || op = Ne
 
 let extract_set pid (lv,e) mem global feature =
-  let locs = eval_lv pid lv mem (failwith "TODO") in
+  let locs = eval_lv pid lv mem empty_location in
   try
     feature
     |> (if is_const e then PowLoc.fold add_assign_const locs else id)
@@ -411,16 +416,16 @@ let extract_assume node pid e mem global feature =
       (match cond with
       | BinOp (op,Lval x,e,_) when check_op op ->
        begin
-        let locs = eval_lv pid x mem (failwith "TODO") in
+        let locs = eval_lv pid x mem empty_location in
         (if is_const e then PowLoc.fold add_prune_by_const locs else id)
         >>> (if is_var e then PowLoc.fold add_prune_by_var locs else id)
        end
-      | UnOp (LNot,Lval x,_) -> PowLoc.fold add_prune_by_not (eval_lv pid x mem (failwith "TODO"))
+      | UnOp (LNot,Lval x,_) -> PowLoc.fold add_prune_by_not (eval_lv pid x mem empty_location)
       | _ -> id)
     end)
 
 let extract_alloc node pid (lv,e) mem global feature =
-  let locs_lv = eval_lv pid lv mem (failwith "TODO") in
+  let locs_lv = eval_lv pid lv mem empty_location in
   let locs_e = Access.Info.useof (AccessSem.accessof global node sem_fun mem) in
   feature
   |> (PowLoc.fold add_pass_to_alloc locs_e)
@@ -429,7 +434,7 @@ let extract_alloc node pid (lv,e) mem global feature =
 let extract_call_realloc node pid (lvo,fe,el) mem global feature =
   match lvo, (simplify_exp fe) with
   | Some lv, Lval (Var f, NoOffset) when f.vname = "realloc" ->
-    let locs_lv = eval_lv pid lv mem (failwith "TODO") in
+    let locs_lv = eval_lv pid lv mem empty_location in
     let locs_e =
       Access.Info.useof (
         list_fold (fun e access ->
@@ -505,10 +510,10 @@ let extract1 : InterCfg.t -> Mem.t -> Global.t -> InterCfg.Node.t -> feature -> 
   try
     feature |>
       (match cmd with
-      | Cset (lv,e,_) -> extract_set pid (lv,e) mem global
-      | Cassume (e,_) -> extract_assume node pid e mem global
-      | Calloc (lv,IntraCfg.Cmd.Array e,_,_) -> extract_alloc node pid (lv,e) mem global
-      | Ccall (lvo, fe, el, _) -> extract_call node pid (lvo,fe,el) mem global
+      | Cset (lv,e,_) -> fun feature -> extract_set pid (lv,e) mem global feature
+      | Cassume (e,_) -> fun feature -> extract_assume node pid e mem global feature 
+      | Calloc (lv,IntraCfg.Cmd.Array e,_,_) -> fun feature -> extract_alloc node pid (lv,e) mem global feature
+      | Ccall (lvo, fe, el, _) -> fun feature -> extract_call node pid (lvo,fe,el) mem global feature 
       | _ -> id)
     |> (extract_used_index pid mem cmd)
     |> (extract_used_buf pid mem cmd)
@@ -527,8 +532,8 @@ let extract2 : InterCfg.t -> Mem.t -> Global.t -> InterCfg.Node.t -> feature -> 
 =fun icfg mem global node feature ->
   let pid = InterCfg.Node.get_pid node in
   match InterCfg.cmdof icfg node with
-  | Cset (lv,e,_) ->
-    let locs_lv = eval_lv pid lv mem (failwith "TODO") in
+  | Cset (lv, e, loc) ->
+    let locs_lv = eval_lv pid lv mem loc in
     let locs_e  = Access.Info.useof (accessof_eval pid e mem) in
     let e = simplify_exp e in
     (match lv,e with
@@ -559,11 +564,11 @@ module G = Graph.Persistent.Digraph.ConcreteBidirectional(N)
 let build_copy_graph icfg mem =
   list_fold (fun n g ->
     match InterCfg.cmdof icfg n with
-    | Cset (lv,e,_) ->
+    | Cset (lv,e, loc) ->
      (match lv,(simplify_exp e) with
       | (Var x,NoOffset), Lval (Var y,NoOffset) ->
         let pid = InterCfg.Node.get_pid n in
-        let lhs = PowLoc.choose (eval_lv pid lv mem (failwith "TODO")) in
+        let lhs = PowLoc.choose (eval_lv pid lv mem loc) in
         let rhs = PowLoc.choose (Access.Info.useof (accessof_eval pid e mem)) in
           G.add_edge g rhs lhs
       | _ -> g)
@@ -718,5 +723,5 @@ let select : Global.t -> PowLoc.t -> PowLoc.t
   if !Options.pfs >= 100 then locset
   else if !Options.pfs <= 0 then PowLoc.empty
   else
-    rank global locset
+    rank global locset 
     |> take_top !Options.pfs

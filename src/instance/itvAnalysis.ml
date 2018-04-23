@@ -81,19 +81,20 @@ let check_nd v1 : (status * Allocsite.t option * string) list =
     if PowLoc.mem Loc.null ploc then
       [(UnProven, None, "Null Dereference")]
     else [(Proven, None, "")]
-
+         
 let inspect_aexp_bo : InterCfg.node -> AlarmExp.t -> Mem.t -> query list -> query list
 =fun node aexp mem queries ->
   (match aexp with
-    | ArrayExp (lv,e,loc) ->
-        let v1 = Mem.lookup (ItvSem.eval_lv (InterCfg.Node.get_pid node) lv mem (failwith "TODO")) mem in
-        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e mem (failwith "Todo") in
-        let lst = check_bo v1 (Some v2) in
-        List.map (fun (status,a,desc) ->
-          { node = node; exp = aexp; loc = loc; allocsite = a;
-          status = status; desc = desc }) lst
+   | ArrayExp (lv, e, loc) ->
+     let lv = ItvSem.eval_lv (InterCfg.Node.get_pid node) lv mem loc in
+     let v1 = Mem.lookup lv mem in
+     let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e mem loc in
+     let lst = check_bo v1 (Some v2) in
+     List.map (fun (status,a,desc) ->
+         { node = node; exp = aexp; loc = loc; allocsite = a;
+           status = status; desc = desc }) lst
     | DerefExp (e,loc) ->
-        let v = ItvSem.eval (InterCfg.Node.get_pid node) e mem (failwith "Todo") in
+        let v = ItvSem.eval (InterCfg.Node.get_pid node) e mem loc in
         let lst = check_bo v None in
           if Val.eq Val.bot v then
             List.map (fun (status,a,desc) ->
@@ -107,15 +108,15 @@ let inspect_aexp_bo : InterCfg.node -> AlarmExp.t -> Mem.t -> query list -> quer
               else { node = node; exp = aexp; loc = loc; status = status; allocsite = a;
                      desc = desc }) lst
     | Strcpy (e1, e2, loc) ->
-        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 mem (failwith "Todo") in
-        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 mem (failwith "Todo") in
+        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 mem loc in
+        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 mem loc in
         let v2 = Val.of_itv (ArrayBlk.nullof (Val.array_of_val v2)) in
         let lst = check_bo v1 (Some v2) in
         List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = a;
             status = status; desc = desc }) lst
     | Strcat (e1, e2, loc) ->
-        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 mem (failwith "Todo") in
-        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 mem (failwith "Todo") in
+        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 mem loc in
+        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 mem loc in
         let np1 = ArrayBlk.nullof (Val.array_of_val v1) in
         let np2 = ArrayBlk.nullof (Val.array_of_val v2) in
         let np = Val.of_itv (Itv.plus np1 np2) in
@@ -125,10 +126,10 @@ let inspect_aexp_bo : InterCfg.node -> AlarmExp.t -> Mem.t -> query list -> quer
     | Strncpy (e1, e2, e3, loc)
     | Memcpy (e1, e2, e3, loc)
     | Memmove (e1, e2, e3, loc) ->
-        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 mem (failwith "Todo") in
-        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 mem (failwith "Todo") in
+        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 mem loc in
+        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 mem loc in
         let e3_1 = Cil.BinOp (Cil.MinusA, e3, Cil.mone, Cil.intType) in
-        let v3 = ItvSem.eval (InterCfg.Node.get_pid node) e3_1 mem (failwith "Todo") in
+        let v3 = ItvSem.eval (InterCfg.Node.get_pid node) e3_1 mem loc in
         let lst1 = check_bo v1 (Some v3) in
         let lst2 = check_bo v2 (Some v3) in
         List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = a;
@@ -139,7 +140,7 @@ let inspect_aexp_nd : InterCfg.node -> AlarmExp.t -> Mem.t -> query list -> quer
 =fun node aexp mem queries ->
   (match aexp with
   | DerefExp (e,loc) ->
-    let v = ItvSem.eval (InterCfg.Node.get_pid node) e mem (failwith "Todo") in
+    let v = ItvSem.eval (InterCfg.Node.get_pid node) e mem loc in
     let lst = check_nd v in
       if Val.eq Val.bot v then
         List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = a;
@@ -163,7 +164,7 @@ let inspect_aexp_dz : InterCfg.node -> AlarmExp.t -> Mem.t -> query list -> quer
 = fun node aexp mem queries ->
   (match aexp with
       DivExp (_, e, loc) ->
-      let v = ItvSem.eval (InterCfg.Node.get_pid node) e mem (failwith "Todo") in
+      let v = ItvSem.eval (InterCfg.Node.get_pid node) e mem loc in
       let lst = check_dz v in
         List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = None;
           status = status; desc = desc }) lst

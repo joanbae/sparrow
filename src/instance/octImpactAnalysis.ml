@@ -27,7 +27,7 @@ module Table = Analysis.Table
 module Spec = Analysis.Spec
 module Mem = OctImpactDom.Mem
 
-let check pid v1 v2opt v2exp ptrmem mem : (AbsOct.t option * Allocsite.t option * string) list =
+let check pid v1 v2opt v2exp ptrmem mem loc : (AbsOct.t option * Allocsite.t option * string) list =
   let arr = ItvDom.Val.array_of_val v1 in
   if ArrayBlk.eq arr ArrayBlk.bot || ArrayBlk.cardinal arr > 1 then
     ItvAnalysis.check_bo v1 v2opt |> List.map (fun (s, a, d) -> (None, a, d))
@@ -44,7 +44,7 @@ let check pid v1 v2opt v2exp ptrmem mem : (AbsOct.t option * Allocsite.t option 
            Some (Cil.Lval x), size
          | Some (Cil.BinOp (_, Cil.Lval x, Cil.Const _, _)), size
             when Itv.lower size >0 && Itv.lower offset >= 0 ->
-            let idx_set = ItvSem.eval_lv pid x ptrmem (failwith "TODO") in
+            let idx_set = ItvSem.eval_lv pid x ptrmem loc in
             if PowLoc.cardinal idx_set = 1 then
               let idx = PowLoc.choose idx_set |> OctLoc.of_loc in
               let absoct = Mem.lookup mem in
@@ -63,9 +63,9 @@ let inspect_aexp : InterCfg.node -> AlarmExp.t -> ItvDom.Mem.t -> Mem.t
   let pid = InterCfg.Node.get_pid node in
   (match aexp with
   | ArrayExp (lv,e,loc) ->
-      let v1 = ItvDom.Mem.lookup (ItvSem.eval_lv (InterCfg.Node.get_pid node) lv ptrmem (failwith "TODO")) ptrmem in
-      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem (failwith "TODO") in
-      check pid v1 (Some v2) (Some e) ptrmem mem
+      let v1 = ItvDom.Mem.lookup (ItvSem.eval_lv (InterCfg.Node.get_pid node) lv ptrmem loc) ptrmem in
+      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem loc in
+      check pid v1 (Some v2) (Some e) ptrmem mem loc
       |> List.map (fun (status,a,desc) ->
         match status with
           Some p -> ({node = node; exp = aexp; loc= loc; allocsite = a;
@@ -73,8 +73,8 @@ let inspect_aexp : InterCfg.node -> AlarmExp.t -> ItvDom.Mem.t -> Mem.t
         | None -> ({node = node; exp = aexp; loc= loc; allocsite = a;
                     status = UnProven; desc = desc }, status))
   | DerefExp ((Cil.BinOp (op, e1, e2, _)) as e,loc) when op = Cil.PlusPI || op = Cil.IndexPI ->
-      let v = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem (failwith "TODO") in
-      check pid v None (Some e2) ptrmem mem
+      let v = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem loc in
+      check pid v None (Some e2) ptrmem mem loc
       |> List.map (fun (status,a,desc) ->
         match status with
           Some p -> ({node = node; exp = aexp; loc= loc; allocsite = a;
@@ -82,8 +82,8 @@ let inspect_aexp : InterCfg.node -> AlarmExp.t -> ItvDom.Mem.t -> Mem.t
         | None -> ({node = node; exp = aexp; loc= loc; allocsite = a;
                     status = UnProven; desc = desc }, status))
   | DerefExp (e,loc) -> (* dummy *)
-      let v = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem (failwith "TODO") in
-      check pid v None None ptrmem mem
+      let v = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem loc in
+      check pid v None None ptrmem mem loc
       |> List.map (fun (status,a,desc) ->
         match status with
           Some p -> ({node = node; exp = aexp; loc= loc; allocsite = a;
@@ -91,10 +91,10 @@ let inspect_aexp : InterCfg.node -> AlarmExp.t -> ItvDom.Mem.t -> Mem.t
         | None -> ({node = node; exp = aexp; loc= loc; allocsite = a;
                     status = UnProven; desc = desc }, status))
   | Strcpy (e1, e2, loc) ->
-      let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem (failwith "TODO") in
-      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem (failwith "TODO") in
+      let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem loc in
+      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem loc in
       let v2 = ItvDom.Val.of_itv (ArrayBlk.nullof (ItvDom.Val.array_of_val v2)) in
-      check pid v1 (Some v2) None ptrmem mem
+      check pid v1 (Some v2) None ptrmem mem loc
       |> List.map (fun (status,a,desc) ->
         match status with
           Some p -> ({ node = node; exp = aexp; loc = loc; allocsite = a;
@@ -102,12 +102,12 @@ let inspect_aexp : InterCfg.node -> AlarmExp.t -> ItvDom.Mem.t -> Mem.t
         | None -> ({ node = node; exp = aexp; loc = loc; allocsite = a;
                      status = UnProven; desc = desc }, status))
     | Strcat (e1, e2, loc) ->
-        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem (failwith "TODO") in
-        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem (failwith "TODO") in
+        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem loc in
+        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem loc in
         let np1 = ArrayBlk.nullof (ItvDom.Val.array_of_val v1) in
         let np2 = ArrayBlk.nullof (ItvDom.Val.array_of_val v2) in
         let np = ItvDom.Val.of_itv (Itv.plus np1 np2) in
-        check pid v1 (Some np) None ptrmem mem
+        check pid v1 (Some np) None ptrmem mem loc
         |> List.map (fun (status,a,desc) ->
           match status with
             Some p -> ({ node = node; exp = aexp; loc = loc; allocsite = a;
@@ -117,12 +117,12 @@ let inspect_aexp : InterCfg.node -> AlarmExp.t -> ItvDom.Mem.t -> Mem.t
     | Strncpy (e1, e2, e3, loc)
     | Memcpy (e1, e2, e3, loc)
     | Memmove (e1, e2, e3, loc) ->
-        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem (failwith "TODO") in
-        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem (failwith "TODO") in
+        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem loc in
+        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem loc in
         let e3_1 = Cil.BinOp (Cil.MinusA, e3, Cil.mone, Cil.intType) in
-        let v3 = ItvSem.eval (InterCfg.Node.get_pid node) e3_1 ptrmem (failwith "TODO") in
-        let lst1 = check pid v1 (Some v3) (Some e3) ptrmem mem in
-        let lst2 = check pid v2 (Some v3) (Some e2) ptrmem mem in
+        let v3 = ItvSem.eval (InterCfg.Node.get_pid node) e3_1 ptrmem loc in
+        let lst1 = check pid v1 (Some v3) (Some e3) ptrmem mem loc in
+        let lst2 = check pid v2 (Some v3) (Some e2) ptrmem mem loc in
         (lst1@lst2)
         |> List.map (fun (status,a,desc) ->
             match status with

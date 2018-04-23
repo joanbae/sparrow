@@ -194,10 +194,10 @@ let add_gvar global node feat =
     { feat with gvar = true }
   else feat
 
-let add_finite global node exps feat =
+let add_finite global node exps feat loc =
   let pid = Node.get_pid node in
   let is_finite e =
-    let v = ItvSem.eval pid e global.mem (failwith "TODO") in
+    let v = ItvSem.eval pid e global.mem loc in
     let itv = Val.itv_of_val v in
     let arr = Val.array_of_val v in
     (Itv.is_finite itv) || (Itv.is_finite (ArrayBlk.sizeof arr))
@@ -309,7 +309,7 @@ let lib_feature global cfg trset =
           |> add_use_ret_in_loop global node exps pid scc_list
           |> add_update_param_itself global node exps pid scc_list
           |> add_out_of_fun global node cfg
-          |> add_finite global node exps
+          |> fun x -> add_finite global node exps x loc
           |> add_from f
           |> add_points_to global node exps
           |> add_cstring global node cfg exps

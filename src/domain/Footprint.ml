@@ -13,7 +13,8 @@ let pp fmt {file; line;
             src_location = {Cil.file = src_file;
                             line = src_line;
                             byte = src_byte}} =
-  Format.fprintf fmt "%s:%d(%s:%d:%d)" file line src_file src_line src_byte
+  let file_name =  Filename.basename file in
+  Format.fprintf fmt "%s:%d(%s:%d:%d)" file_name line src_file src_line src_byte
 
 let to_string x =
   pp Format.str_formatter x;

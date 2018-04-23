@@ -13,5 +13,5 @@ include AbsSem.S with type Dom.t = ItvDom.Mem.t and type Dom.A.t = BasicDom.Loc.
 
 val eval_lv : ?spec:Spec.t -> BasicDom.Proc.t -> Cil.lval -> ItvDom.Mem.t -> Cil.location -> BasicDom.PowLoc.t
 val eval : ?spec:Spec.t -> BasicDom.Proc.t -> Cil.exp -> ItvDom.Mem.t -> Cil.location ->  ItvDom.Val.t
-val eval_array_alloc : ?spec:Spec.t -> BasicDom.Node.t -> Cil.exp -> bool -> Dom.t -> ItvDom.Val.t
-val eval_string_alloc : BasicDom.Node.t -> string -> Dom.t -> ItvDom.Val.t
+val eval_array_alloc : ?spec:Spec.t -> BasicDom.Node.t -> Cil.exp -> bool -> Dom.t -> Cil.location -> ItvDom.Val.t
+val eval_string_alloc : BasicDom.Node.t -> string -> Dom.t -> Cil.location -> ItvDom.Val.t

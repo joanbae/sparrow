@@ -110,7 +110,7 @@ let display_alarms title alarms_part =
         prerr_endline ( ", allocsite: " ^ Allocsite.to_string a)
        | _ -> prerr_newline ())
     ) qs
-  ) alarms_part
+    ) alarms_part
 
 let print : query list -> unit
 =fun queries ->
@@ -128,7 +128,6 @@ let print : query list -> unit
   prerr_endline ("#proven                  : " ^ i2s (BatSet.cardinal (get_proved_query_point queries)));
   prerr_endline ("#unproven                : " ^ i2s (BatMap.cardinal unproven));
   prerr_endline ("#bot-involved            : " ^ i2s (BatMap.cardinal bot))
-
 
 let print_raw : bool -> query list -> unit
 =fun summary_only queries ->

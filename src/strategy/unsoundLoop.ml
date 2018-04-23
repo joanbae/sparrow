@@ -205,11 +205,11 @@ let add_cstring global cond_node cfg feat =
       let cmd2 = IntraCfg.find_cmd (List.hd pred2) cfg in
       let cmd3 = IntraCfg.find_cmd (List.hd pred3) cfg in
       match (cmd1, cmd2, cmd3) with
-        (IntraCfg.Cmd.Cset ((Var c, NoOffset), e1, _),
+        (IntraCfg.Cmd.Cset ((Var c, NoOffset), e1, loc),
          IntraCfg.Cmd.Cset (lv2, e2,_),
          IntraCfg.Cmd.Cset (lv3, Lval lv4, _))
           when  incptr_itself_by_one (lv2, e2) && lv2 = lv4 ->
-          PowLoc.join locset (ItvSem.eval_lv pid lv2 global.mem (failwith "TODO") )
+          PowLoc.join locset (ItvSem.eval_lv pid lv2 global.mem loc )
       | _ -> locset
     else locset
   in
@@ -312,9 +312,9 @@ let add_close_left_arr_size_offset global cond_node cfg feat =
   let qs = AlarmExp.collect cmd in
   List.fold_left (fun feat q ->
         match q with
-          AlarmExp.ArrayExp (arr, i, _)
-        | AlarmExp.DerefExp (BinOp (_, Lval arr, i, _), _) ->
-            let v1 = Mem.lookup (ItvSem.eval_lv pid arr global.mem (failwith "TODO")) global.mem in
+          AlarmExp.ArrayExp (arr, i, loc)
+        | AlarmExp.DerefExp (BinOp (_, Lval arr, i, _), loc) ->
+            let v1 = Mem.lookup (ItvSem.eval_lv pid arr global.mem loc) global.mem in
             let size = ArrayBlk.sizeof (Val.array_of_val v1) in
             let offset = ArrayBlk.offsetof (Val.array_of_val v1) in
             let feat =
@@ -444,8 +444,8 @@ let add_init global conds cfg scc feat =
   let feat = List.fold_left (fun feat node ->
       let cmd = IntraCfg.find_cmd node cfg in
       match cmd with
-        IntraCfg.Cmd.Cset (x, _, _) ->
-          let set = PowLoc.remove Loc.null (ItvSem.eval_lv pid x global.mem (failwith "TODO")) in
+        IntraCfg.Cmd.Cset (x, _, loc) ->
+          let set = PowLoc.remove Loc.null (ItvSem.eval_lv pid x global.mem loc) in
           if PowLoc.bot <> (PowLoc.meet set idx_in_scc) then
             { feat with init_index = true }
           else if PowLoc.bot <> (PowLoc.meet set buf_in_scc) then
