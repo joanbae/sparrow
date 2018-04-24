@@ -162,12 +162,10 @@ let rec resolve_offset : Spec.t -> Proc.t -> Val.t -> Cil.offset -> Mem.t -> Foo
   | Cil.Field (f, os') ->
     let (ploc, arr, str) = (Val.pow_loc_of_val v, Val.array_of_val v, Val.struct_of_val v) in
     let v =
-      lookup ploc mem
-      |> Val.struct_of_val
-      |> flip StructBlk.append_field f                  (* S s; p = &s; p->f *)
-      |> PowLoc.join (ArrayBlk.append_field arr f)      (* p = (struct S* )malloc(sizeof(struct S)); p->f *)
-      |> PowLoc.join (StructBlk.append_field str f)     (* S s; s.f *)
-      |> Val.of_pow_loc
+      let v1 = StructBlk.append_field (Val.struct_of_val (lookup ploc mem)) f in (* Case1: S s; p = &s; p->f *)
+      let v2 = ArrayBlk.append_field arr f in (* Case2:  p = (struct S* )malloc(sizeof(struct S)); p->f *)
+      let v3 = StructBlk.append_field str f in (* Case3:  S s; s.f *)
+      Val.of_pow_loc (PowLoc.join (PowLoc.join v1 v2) v3)
     in
     resolve_offset spec pid v os' mem (Footprints.join fp (FP.of_here [%here] loc), loc)
   | Cil.Index (e, os') ->
