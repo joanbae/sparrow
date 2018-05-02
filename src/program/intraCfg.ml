@@ -417,6 +417,18 @@ let make_init_loop fd lv exp loc entry f g =
   let g = add_edge incr_node skip_node g in
   (nassume_node, g)
 
+(*
+int a[10][20];
+
+...
+
+->
+term : tmp = malloc (4*20);
+->
+casted_tmp = (int *\)tmp;
+a[i] = casted_tmp;
+*) 
+   
 let rec make_nested_array : Cil.fundec -> Cil.lval -> Cil.typ -> Cil.exp -> Cil.location -> node -> bool -> t -> (node * t)
 = fun fd lv typ exp loc entry initialize g ->
   let typ = unrollTypeDeep typ in
