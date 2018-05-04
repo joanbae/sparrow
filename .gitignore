@@ -25,3 +25,5 @@ bin/sparrow*
 # vim swp files
 .*.swp
 .*.swo
+
+memo/
