@@ -1,6 +1,0 @@
-1. itvSem.ml에서 resovle_offset 함수 at 156줄 (commit : 1f243a3d1de800213a00fbdaaf13abe3dea1c250)
-   -  Cil.Index에서 resolve_offset의 인자로 Val.of_array라는 잘못된 인자를 줘서
-   -  Cil.NoOffset에서 PowLoc.join 을 할때 Val.pow_loc_of_val을 할때 bot 이 나오지만 
-      (Val.array_of_val v |> ArrayBlk.pow_loc_of_array 이 제대로 잡아줘서 제대로 된 결과값이 나온다.
-
-2. 

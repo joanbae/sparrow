@@ -1,4 +1,0 @@
-1. 1f243a3d1de800213a00fbdaaf13abe3dea
-   eval_lv array smashing에서 필요한 resolve_offset의 함수를 고쳤다.
-   array가 할당된 주소를 가져와야하는데 array 자체를 가지고 계산하는 실수를 함.
-(but this is not the use case we are looking for; it gives the correct result regardless the analyzer has bug. We want to find a use case where the analysis result gives incorrect result and want to find the position in the analyzer the code)
