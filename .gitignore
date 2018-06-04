@@ -26,4 +26,10 @@ bin/sparrow*
 .*.swp
 .*.swo
 
+#memo for future purpose
 memo/
+
+#ignore .json & all the cfg graph being created
+*.json.vis/
+*.json
+
