@@ -12,6 +12,7 @@ open Vocab
 open Dug
 open BasicDom
 open AbsDom
+open Ppx_compare_lib.Builtin
 
 module type S =
 sig

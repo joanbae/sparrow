@@ -14,6 +14,7 @@ open Vocab
 open Cil
 open CilHelper
 open Printf
+open Ppx_compare_lib.Builtin
 
 module Node = struct
   type t = ENTRY | EXIT | Node of int [@@deriving compare]

@@ -15,6 +15,7 @@ open AbsDom
 open OctDom
 open AbsSem
 open Vocab
+open Ppx_compare_lib.Builtin
 
 module AbsOct =
 struct

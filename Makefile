@@ -1,43 +1,23 @@
-export OCAMLFIND_IGNORE_DUPS_IN=$(shell ocamlc -where)/compiler-libs
+.PHONY: all sparrow sparrow_vis install uninstall clean
 
-# OASIS_START
-# DO NOT EDIT (digest: a3c674b4239234cbbe53afe090018954)
+ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
-SETUP = ocaml setup.ml
+all: sparrow sparrow_vis
 
-build: setup.data
-	$(SETUP) -build $(BUILDFLAGS)
+sparrow:
+	jbuilder build @install sparrow
+	@ln -f -s $(ROOT_DIR)/_build/default/main.exe sparrow
 
-doc: setup.data build
-	$(SETUP) -doc $(DOCFLAGS)
+sparrow_vis:
+	jbuilder build @install sparrow_vis
+	@ln -f -s $(ROOT_DIR)/_build/default/vis.exe sparrow_vis
 
-test: setup.data build
-	$(SETUP) -test $(TESTFLAGS)
+install: sparrow sparrow_vis
+	jbuilder install sparrow
 
-all:
-	$(SETUP) -all $(ALLFLAGS)
-
-install: setup.data
-	$(SETUP) -install $(INSTALLFLAGS)
-
-uninstall: setup.data
-	$(SETUP) -uninstall $(UNINSTALLFLAGS)
-
-reinstall: setup.data
-	$(SETUP) -reinstall $(REINSTALLFLAGS)
+uninstall: sparrow sparrow_vis
+	jbuilder uninstall sparrow
 
 clean:
-	$(SETUP) -clean $(CLEANFLAGS)
-
-distclean:
-	$(SETUP) -distclean $(DISTCLEANFLAGS)
-
-setup.data:
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-configure:
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-.PHONY: build doc test all install uninstall reinstall clean distclean configure
-
-# OASIS_STOP
+	jbuilder clean
+	@rm -f $(ROOT_DIR)/sparrow $(ROOT_DIR)/sparrow_vis

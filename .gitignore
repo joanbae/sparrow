@@ -33,3 +33,7 @@ memo/
 *.json.vis/
 *.json
 
+/.merlin
+/sparrow
+/sparrow_vis
+/sparrow.install

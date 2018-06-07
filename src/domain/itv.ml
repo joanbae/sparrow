@@ -11,6 +11,7 @@
 (* ****************** *
  * Widening threshold *
  * ****************** *)
+open Ppx_compare_lib.Builtin
 
 let threshold = BatSet.of_list [0;1;16;64]
 

@@ -12,6 +12,7 @@
 
 open Vocab
 open InterCfg
+open Ppx_compare_lib.Builtin
 
 module Node = InterCfg.Node
 module PowNode = PowDom.MakeCPO(Node)
