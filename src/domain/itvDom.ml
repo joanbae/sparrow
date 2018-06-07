@@ -46,15 +46,17 @@ struct
   let modify_arr : ArrayBlk.t -> t -> t = fun a x ->
     (itv_of_val x, pow_loc_of_val x, a, struct_of_val x, pow_proc_of_val x, footprints_of_val x)
 
-  let modify_footprints : Lexing.position -> Cil.location -> t -> t = fun here loc x ->
-    let f = Footprints.add (Footprint.of_here here loc) (footprints_of_val x) in
-    (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f)
+  let modify_footprints : Lexing.position -> Cil.location -> Cil.exp -> t -> t
+    = fun here loc e x ->
+      let f = Footprints.add (Footprint.of_here here loc e) (footprints_of_val x) in
+      (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f)
 
   (*eval_lv에서 나오는 Footprint를 처리하기 위해서 쓴다.*)
-  let modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> t -> t = fun here fp loc x ->
-    let f = Footprints.add (Footprint.of_here here loc) (footprints_of_val x) in
-    let f' = Footprints.join fp f in 
-    (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f')
+  let modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> Cil.exp -> t -> t
+    = fun here fp loc e x ->
+      let f = Footprints.add (Footprint.of_here here loc e) (footprints_of_val x) in
+      let f' = Footprints.join fp f in
+      (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f')
     
   let external_value : Allocsite.t -> t = fun allocsite ->
     (Itv.top, PowLoc.bot, ArrayBlk.extern allocsite, StructBlk.extern (), PowProc.bot, Footprints.bot)

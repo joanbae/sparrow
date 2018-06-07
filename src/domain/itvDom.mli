@@ -29,8 +29,8 @@ module Val : sig
   val of_footprints : Footprints.t -> t
   val modify_itv : Itv.t -> t -> t
   val modify_arr : ArrayBlk.t -> t -> t
-  val modify_footprints : Lexing.position -> Cil.location -> t -> t 
-  val modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> t -> t 
+  val modify_footprints : Lexing.position -> Cil.location -> Cil.exp -> t -> t
+  val modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> Cil.exp -> t -> t
   val external_value : BasicDom.Allocsite.t -> t
   val itv_top : t
   val cast : Cil.typ -> Cil.typ -> t -> t

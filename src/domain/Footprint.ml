@@ -2,6 +2,7 @@ type t = {
   file: string; (** The analyzer's fileName **)
   line: int;    (** Line number in that file **)
   src_location: Cil.location; (** Describe a location in a C source file **)
+  exp : Cil.exp
 }
 
 let compare x y =
@@ -12,16 +13,19 @@ let compare x y =
 let pp fmt {file; line;
             src_location = {Cil.file = src_file;
                             line = src_line;
-                            byte = src_byte}} =
+                            byte = src_byte};
+           exp} =
   let file_name =  Filename.basename file in
-  Format.fprintf fmt "%s:%d(%s:%d:%d)" file_name line src_file src_line src_byte
+  let s_exp = CilHelper.s_exp exp in
+  Format.fprintf fmt "%s@%s:%d(%s:%d:%d)" s_exp file_name line src_file src_line src_byte
 
 let to_string x =
   pp Format.str_formatter x;
   Format.flush_str_formatter ()
 
-let of_here here src_location : t =
+let of_here here src_location exp : t =
   { file = here.Lexing.pos_fname;
     line = here.Lexing.pos_lnum;
-    src_location}
+    src_location;
+    exp}
 
