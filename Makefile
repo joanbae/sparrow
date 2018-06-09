@@ -5,11 +5,11 @@ ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 all: sparrow sparrow_vis
 
 sparrow:
-	jbuilder build @install sparrow
+	jbuilder build @install main.exe sparrow
 	@ln -f -s $(ROOT_DIR)/_build/default/main.exe sparrow
 
 sparrow_vis:
-	jbuilder build @install sparrow_vis
+	jbuilder build @install vis.exe sparrow_vis
 	@ln -f -s $(ROOT_DIR)/_build/default/vis.exe sparrow_vis
 
 install: sparrow sparrow_vis
