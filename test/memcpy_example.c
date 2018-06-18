@@ -11,8 +11,8 @@ typedef struct _charVoid
 int main()
 {
   charVoid s;
-  /* sparrow_print (sizeof(charVoid));   */
-  /* sparrow_print (sizeof(s));  */
-  memcpy (s.charFirst, "123456789abcdefg", sizeof(s));
+  char str[] = "hello world in ocaml";
+  memcpy (s.charFirst, str, strlen(str));
   printf("s.charFirst: %s\n",s.charFirst);
 }
+
