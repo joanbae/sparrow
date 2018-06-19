@@ -87,9 +87,12 @@ struct
 
   let add k v m =
     match Loc.typ k with
-    | Some t when Cil.isArithmeticType t -> add k (Val.itv_of_val v |> Val.of_itv) m
+    | Some t when Cil.isArithmeticType t ->
+      let v_fp = Val.footprints_of_val v |> Val.of_footprints in
+      let v = Val.modify_itv (Val.itv_of_val v) v_fp in
+      add k v m
     | _ -> add k v m
-
+             
   let weak_add k v m =
     match Loc.typ k with
     | Some t when Cil.isArithmeticType t -> weak_add k (Val.itv_of_val v |> Val.of_itv) m
@@ -102,8 +105,7 @@ struct
       PowLoc.fold find_join locs Val.bot
 
   let strong_update : PowLoc.t -> Val.t -> t -> t
-  = fun locs v mem ->
-    PowLoc.fold (fun x -> add x v) locs mem
+  = fun locs v mem -> PowLoc.fold (fun x -> add x v) locs mem
 
   let weak_update : PowLoc.t -> Val.t -> t -> t
   = fun locs v mem ->
