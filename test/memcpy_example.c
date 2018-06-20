@@ -12,7 +12,8 @@ int main()
 {
   charVoid s;
   char str[] = "hello world in ocaml";
-  memcpy (s.charFirst, str, strlen(str));
-  printf("s.charFirst: %s\n",s.charFirst);
+  int len = strlen(str);
+  memcpy (s.charFirst, str, len);
+  /* printf("s.charFirst: %s\n",s.charFirst); */
 }
 

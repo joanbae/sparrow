@@ -271,8 +271,8 @@ let eval_array_alloc ?(spec=Spec.empty) : Node.t -> Cil.exp -> bool -> Mem.t -> 
   let st = Itv.of_int 1 in
   let np = Itv.nat in
   let pow_loc = if is_static then PowLoc.bot else PowLoc.singleton Loc.null in
-  let array = ArrayBlk.make allocsite o sz st np in
-  Val.modify_footprints [%here] loc (CilHelper.s_exp e) (Val.join (Val.of_pow_loc pow_loc) (Val.of_array array))
+  let array, here = ArrayBlk.make allocsite o sz st np, [%here] in
+  Val.modify_footprints here loc (CilHelper.s_exp e) (Val.join (Val.of_pow_loc pow_loc) (Val.of_array array))
 
 let eval_struct_alloc : PowLoc.t -> Cil.compinfo -> Cil.location -> string -> Val.t
   = fun lv comp loc exp ->
@@ -456,7 +456,9 @@ let model_strlen mode spec pid (lvo, exps) (mem, global) loc =
   | (Some lv, str::_) ->
     let str_val = eval ~spec pid str mem loc in
     let null_pos = ArrayBlk.nullof (ItvDom.Val.array_of_val str_val) in
-    let v = Val.of_itv (Itv.meet Itv.nat null_pos) in
+    let itv, here = (Itv.meet Itv.nat null_pos), [%here] in
+    let s_exp = "strlen("^CilHelper.s_exp str^")" in
+    let v = Val.modify_footprints' here (Val.footprints_of_val str_val) loc s_exp (Val.of_itv itv) in
     let lv = eval_lv ~spec pid lv mem loc in
     (update mode spec global lv v mem, global)
   | _ -> (mem,global)
