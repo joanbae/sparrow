@@ -479,6 +479,7 @@ let rec model_fgets mode spec pid (lvo, exps) (mem, global) loc =
   | _ -> (mem,global)
 
 let rec model_sprintf mode spec pid (lvo, exps) (mem, global) loc =
+  let s_exp = "sprintf("^(CilHelper.s_exp (List.hd exps))^","^CilHelper.s_exp (List.nth exps 1)^",...)"in
   match exps with
   | Lval buf::str::[] | StartOf buf::str::[] ->  (* format string *)
     let str_val = eval ~spec pid str mem loc |> ItvDom.Val.array_of_val in
@@ -486,13 +487,15 @@ let rec model_sprintf mode spec pid (lvo, exps) (mem, global) loc =
     let buf_lv = eval_lv ~spec pid buf mem loc in
     let buf_arr = lookup buf_lv mem |> ItvDom.Val.array_of_val in
     let allocsites = ArrayBlk.pow_loc_of_array buf_arr in
-    let buf_val = ArrayBlk.set_null_pos buf_arr null_pos |> ItvDom.Val.of_array in
+    let buf_val, here = (ArrayBlk.set_null_pos buf_arr null_pos |> ItvDom.Val.of_array), [%here] in
+    let buf_val = Val.modify_footprints here loc s_exp buf_val in
     mem
     |> update mode spec global buf_lv buf_val
     |> update mode spec global allocsites (lookup arrays mem)
     |> (match lvo with 
         | Some lv ->
-          update mode spec global (eval_lv ~spec pid lv mem loc) (Val.of_itv null_pos)
+          let v = Val.modify_footprints [%here] loc s_exp (Val.of_itv null_pos) in
+          update mode spec global (eval_lv ~spec pid lv mem loc) v
         | _ -> id)
     |> (fun mem -> (mem, global))
   | CastE (_, buf)::str::[]
@@ -501,7 +504,8 @@ let rec model_sprintf mode spec pid (lvo, exps) (mem, global) loc =
     begin
       match lvo with
         Some lv ->
-        (update mode spec global (eval_lv ~spec pid lv mem loc) (Val.of_itv Itv.nat) mem, global)
+        let v = Val.modify_footprints [%here] loc s_exp (Val.of_itv Itv.nat) in
+        (update mode spec global (eval_lv ~spec pid lv mem loc) v mem, global)
       | _ -> (mem,global)
     end
 
@@ -630,7 +634,7 @@ let rec model_strchr mode spec node pid (lvo, exps) (mem, global) loc =
       (mem, global)
   | _, _ -> (mem, global)
 
-let sparrow_array_init mode spec node pid exps (mem, global) loc =
+let sparrow_array_init mode spec node pid exps (mem, global) loc lvo =
   match List.nth exps 0, List.nth exps 1 with
   | arr, Cil.Const (Cil.CInt64 (_, _, _)) ->
       let lv = eval ~spec pid arr mem loc |> Val.array_of_val |> ArrayBlk.pow_loc_of_array in
@@ -645,7 +649,15 @@ let sparrow_array_init mode spec node pid exps (mem, global) loc =
           | _ -> v) Val.bot (List.tl exps)
       in
       (update mode spec global lv v mem, global)
-  | _, _ -> (mem, global)
+  | arr, _ ->
+    let getLval e =
+      match e with
+      | Cil.Lval l -> eval_lv ~spec pid l mem loc
+      | _ -> raise (Failure "Error: not Lval ")
+    in
+    let s_exp = "sp_arr_init("^CilHelper.s_exp arr^")" in
+    let v = Val.modify_footprints [%here] loc s_exp (eval ~spec pid arr mem loc) in
+    (update mode spec global (getLval arr) v mem, global)
 
 let mem_alloc_libs = ["__ctype_b_loc"; "initscr"; "newwin"; "localtime"; "__errno_location"; "opendir"; "readdir"]
 let scaffolded_functions mode spec node pid (lvo,f,exps) (mem, global) loc =
@@ -675,7 +687,7 @@ let handle_undefined_functions mode spec node pid (lvo,f,exps) (mem,global) loc 
   | "sparrow_print" -> sparrow_print spec pid exps mem loc; (mem,global)
   | "sparrow_dump" -> sparrow_dump mem loc; (mem,global)
   | "sparrow_assume" -> (prune mode spec global pid (List.hd exps) mem loc, global)
-  | "sparrow_array_init" -> sparrow_array_init mode spec node pid exps (mem, global) loc
+  | "sparrow_array_init" -> sparrow_array_init mode spec node pid exps (mem, global) loc lvo
   | "strlen" -> model_strlen mode spec pid (lvo, exps) (mem, global) loc
   | "realloc" -> model_realloc mode spec node (lvo, exps) (mem, global) loc
   | "calloc" -> model_calloc mode spec node (lvo, exps) (mem, global) loc
