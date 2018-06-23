@@ -634,7 +634,7 @@ let rec model_strchr mode spec node pid (lvo, exps) (mem, global) loc =
       (mem, global)
   | _, _ -> (mem, global)
 
-let sparrow_array_init mode spec node pid exps (mem, global) loc lvo =
+let sparrow_array_init mode spec node pid exps (mem, global) loc =
   match List.nth exps 0, List.nth exps 1 with
   | arr, Cil.Const (Cil.CInt64 (_, _, _)) ->
       let lv = eval ~spec pid arr mem loc |> Val.array_of_val |> ArrayBlk.pow_loc_of_array in
@@ -687,7 +687,7 @@ let handle_undefined_functions mode spec node pid (lvo,f,exps) (mem,global) loc 
   | "sparrow_print" -> sparrow_print spec pid exps mem loc; (mem,global)
   | "sparrow_dump" -> sparrow_dump mem loc; (mem,global)
   | "sparrow_assume" -> (prune mode spec global pid (List.hd exps) mem loc, global)
-  | "sparrow_array_init" -> sparrow_array_init mode spec node pid exps (mem, global) loc lvo
+  | "sparrow_array_init" -> sparrow_array_init mode spec node pid exps (mem, global) loc
   | "strlen" -> model_strlen mode spec pid (lvo, exps) (mem, global) loc
   | "realloc" -> model_realloc mode spec node (lvo, exps) (mem, global) loc
   | "calloc" -> model_calloc mode spec node (lvo, exps) (mem, global) loc
