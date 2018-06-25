@@ -205,8 +205,8 @@ and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> Val.
     | Cil.Const c -> Val.modify_footprints [%here] loc s_exp (eval_const c loc) 
     | Cil.Lval l -> 
       let powloc, fp = eval_lv_with_footprint ~spec pid l mem loc in
-      let v = lookup powloc mem in
-      Val.modify_footprints' [%here] fp loc s_exp v
+      let v, here = lookup powloc mem, [%here] in
+      Val.modify_footprints' here fp loc s_exp v
     | Cil.SizeOf t ->
       let sizeOf, here =
         Val.of_itv (try CilHelper.byteSizeOf t |> Itv.of_int with _ -> Itv.pos), [%here] in
@@ -466,14 +466,17 @@ let model_strlen mode spec pid (lvo, exps) (mem, global) loc =
 let rec model_fgets mode spec pid (lvo, exps) (mem, global) loc = 
   match (lvo, exps) with
   | (_, Lval buf::size::_) | (_, StartOf buf::size::_) ->
+    let s_exps = CilHelper.s_exps exps in
     let size_itv = eval ~spec pid size mem loc |> ItvDom.Val.itv_of_val in
     let buf_lv = eval_lv ~spec pid buf mem loc in
     let buf_arr = lookup buf_lv mem |> ItvDom.Val.array_of_val in
     let allocsites = ArrayBlk.pow_loc_of_array buf_arr in
-    let buf_val = ArrayBlk.set_null_pos buf_arr (Itv.join Itv.zero size_itv) |> ItvDom.Val.of_array in
+    let buf_val, here = ArrayBlk.set_null_pos buf_arr (Itv.join Itv.zero size_itv) |> ItvDom.Val.of_array, [%here] in
+    let buf_val = Val.modify_footprints here loc s_exps buf_val in
+    (* (update mode spec global buf_lv buf_val mem, global) *)
     mem
     |> update mode spec global buf_lv buf_val
-    |> update mode spec global allocsites Val.itv_top
+    |> update mode spec global allocsites (Val.modify_footprints [%here] loc s_exps (Val.itv_top))
     |> (fun mem -> (mem, global))
   | (_, CastE (_, buf)::size::e) -> model_fgets mode spec pid (lvo, buf::size::e) (mem, global) loc
   | _ -> (mem,global)
