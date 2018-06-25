@@ -33,7 +33,7 @@ module Val : sig
   val modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> string -> t -> t
   val external_value : BasicDom.Allocsite.t -> t
   val itv_top : t
-  val cast : Cil.typ -> Cil.typ -> t -> t
+  val cast : Cil.typ -> Cil.typ -> t -> Cil.location * Cil.exp -> t
 end
 
 module Mem : sig

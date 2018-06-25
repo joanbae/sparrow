@@ -242,9 +242,9 @@ and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> Val.
       let v, here = Val.join (eval ~spec pid e2 mem loc) (eval ~spec pid e3 mem loc), [%here] in
       Val.modify_footprints here loc s_exp v
   | Cil.CastE (t, e) ->
-    let v, here = eval ~spec pid e mem loc, [%here] in
-    (try Val.modify_footprints [%here] loc s_exp (Val.cast (Cil.typeOf e) t v)
-     with _ -> Val.modify_footprints here loc s_exp v)
+    let v = eval ~spec pid e mem loc in
+    (try Val.modify_footprints [%here] loc s_exp (Val.cast (Cil.typeOf e) t v (loc, e)) 
+     with _ -> Val.modify_footprints [%here] loc s_exp v)
   | Cil.AddrOf l ->
     let powloc, fp = eval_lv_with_footprint ~spec pid l mem loc in
     Val.modify_footprints' [%here] fp loc s_exp (Val.of_pow_loc powloc)
@@ -574,7 +574,7 @@ let model_getpwent mode spec node pid lvo f (mem,global) loc =
   match lvo, f.vtype with
     Some lv, Cil.TFun ((Cil.TPtr ((Cil.TComp (comp, _) as elem_t), _) as ptr_t), _, _, _) ->
       let struct_loc = eval_lv ~spec pid lv mem loc in
-      let struct_v = eval_array_alloc ~spec node (Cil.SizeOf elem_t) false mem loc |> Val.cast ptr_t (Cil.typeOfLval lv) in
+      let struct_v = eval_array_alloc ~spec node (Cil.SizeOf elem_t) false mem loc |> fun v -> Val.cast ptr_t (Cil.typeOfLval lv) v (loc, (Cil.Const (Cil.CStr "temp")))  in
       let field_loc = ArrayBlk.append_field (Val.array_of_val struct_v) (List.find (fun f -> f.fname ="pw_name") comp.cfields) in
       let allocsite = Allocsite.allocsite_of_ext (Some "getpwent.pw_name") in
       let ext_v = ArrayBlk.input allocsite |> Val.of_array in

@@ -10,6 +10,7 @@
 (***********************************************************************)
 open BasicDom
 open Vocab
+module FP = Footprints
 
 module Val =
 struct
@@ -63,15 +64,20 @@ struct
 
   let itv_top : t = (Itv.top, PowLoc.bot, ArrayBlk.bot, StructBlk.bot, PowProc.bot, Footprints.bot)
 
-  let cast : Cil.typ -> Cil.typ -> t -> t
-  = fun from_typ to_typ v ->
+  let cast : Cil.typ -> Cil.typ -> t -> (Cil.location * Cil.exp) -> t
+  = fun from_typ to_typ v (loc, exp) ->
+    let fp = footprints_of_val v in
+    let s_exp = CilHelper.s_exp exp in
     let (from_typ, to_typ) = BatTuple.Tuple2.mapn Cil.unrollTypeDeep (from_typ, to_typ) in
     if v = (of_itv Itv.zero) && (Cil.isPointerType to_typ) then (* char* x = (char* ) 0 *)
-      null
+      let res, here = null, [%here] in
+      modify_footprints' here fp loc s_exp res
     else if Cil.isIntegralType to_typ then
-      v |> itv_of_val |> Itv.cast from_typ to_typ |> of_itv
+    let itv, here = Itv.cast from_typ to_typ (itv_of_val v), [%here] in
+    modify_footprints' here fp loc s_exp (of_itv itv)
     else
-      v |> array_of_val |> ArrayBlk.cast_array to_typ |> flip modify_arr v
+      let arr, here = ArrayBlk.cast_array to_typ (array_of_val v), [%here] in
+      modify_footprints' here fp loc s_exp (flip modify_arr v arr)
 
   let to_string x =
    "("^(Itv.to_string (fst x))^", "^(PowLoc.to_string (snd x))^", "
