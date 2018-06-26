@@ -111,8 +111,8 @@ let eval_bop : Spec.t -> Cil.binop -> Val.t -> Val.t -> Cil.location -> string -
   | Cil.MinusPP ->
     let offset1 = Val.array_of_val v1 |> ArrayBlk.offsetof in
     let offset2 = Val.array_of_val v2 |> ArrayBlk.offsetof in
-    let v = Itv.minus offset1 offset2 |> Val.of_itv in
-    Val.modify_footprints [%here] loc e (Val.join v fp)
+    let v, here = Itv.minus offset1 offset2 |> Val.of_itv, [%here] in
+    Val.modify_footprints here loc e (Val.join v fp)
   | Cil.Mult ->
     let v = Val.of_itv (Itv.times (Val.itv_of_val v1) (Val.itv_of_val v2)) in
     Val.modify_footprints [%here] loc e (Val.join v fp)
