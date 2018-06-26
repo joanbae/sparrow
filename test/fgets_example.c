@@ -1,20 +1,25 @@
 #include <stdio.h>
+#include <stdlib.h>
 
-int main()
-{
-   FILE * pFile;
-   char mystring [100];
-   char * result;
-   pFile = fopen ("myfile.txt" , "r");
-   if (pFile == NULL) perror ("Error opening file");
-   else {
-     result = fgets (mystring , 100 , pFile);
-     if (result != NULL )
-       puts (mystring);
-     fclose (pFile);
-   }
-   printf("the 4rd character: %c\n", result[100]);
+char *name;
 
+int main(void){
+  int name_size = 100;
+  char name[100];
+  char *result = fgets(name, name_size, stdin);
+  sparrow_print(result);
+  char c = name[10];
+  sparrow_print(c);
+  return 0;
   
-   return 0;
 }
+
+/* int main(void) */
+/* { */
+/*   int name_size = 100; */
+/*   name = calloc(name_size, sizeof(char)); */
+/*   fgets(name, name_size, stdin); */
+/*   sparrow_print(name); */
+/*   printf("%c\n", name[0]); */
+/*   free(name); */
+/* } */

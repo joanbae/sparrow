@@ -6,9 +6,9 @@ int main( void)
    char *ptr;
    char str[20] = "Hi my name is Joan";
    ptr = strdup(str);
-
    sparrow_print(ptr);
-   printf("%c\n",ptr[0]);
+   printf("%c\n",ptr[100]);
+   free(ptr);
      
    return 0;
 }

@@ -1,15 +1,11 @@
-int arr[10];
+#include <stdio.h>
+
+int arr[10] = {0,};
 
 int main(){
-  int* p = arr;
-  *(p+1) = 10;
-  sparrow_print(arr);
-  sparrow_print(p);
-  sparrow_print(*p);
-
-  int larr[10];
-  larr[1] = 20;
-  sparrow_print(larr);
-  sparrow_print(larr[1]);
+  int i = 100;
+  int *p = &i;
+  *p = 300;
+  printf("%d", i);
   return 0;
 }
