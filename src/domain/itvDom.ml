@@ -58,6 +58,17 @@ struct
       let f = Footprints.add (Footprint.of_here here loc e) (footprints_of_val x) in
       let f' = Footprints.join fp f in
       (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f')
+
+  (* For joining multiple footprints *)
+  let modify_footprints'' : Lexing.position -> Footprints.t list -> Cil.location -> string -> t -> t
+    = fun here fps loc e x ->
+      let rec fp_join fps res =
+        match fps with
+          [] -> res
+        | hd::tl -> fp_join tl (Footprints.join hd res)
+      in
+      let fps = fp_join fps Footprints.empty in
+      modify_footprints' here fps loc e x
     
   let external_value : Allocsite.t -> t = fun allocsite ->
     (Itv.top, PowLoc.bot, ArrayBlk.extern allocsite, StructBlk.extern (), PowProc.bot, Footprints.bot)

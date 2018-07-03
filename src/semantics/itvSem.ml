@@ -591,10 +591,14 @@ let rec model_strcpy mode spec node pid es (mem, global) loc =
   | dst::(CastE(_, e))::[] -> model_strcpy mode spec node pid (dst::e::[]) (mem,global) loc
   | (Lval dst)::(Lval src)::[] | (StartOf dst)::(StartOf src)::[]
   | (Lval dst)::(StartOf src)::[] | (StartOf dst)::(Lval src)::[] ->
-      let src_arr = Val.array_of_val (lookup (eval_lv ~spec pid src mem loc) mem) in
-      let dst_arr = Val.array_of_val (lookup (eval_lv ~spec pid dst mem loc) mem) in
+      let s_exp = (CilHelper.s_exp (List.hd es))^", "^(CilHelper.s_exp (List.nth es 1)) in
+      let src_v = lookup (eval_lv ~spec pid src mem loc) mem in
+      let src_arr, src_fp  = Val.array_of_val src_v, Val.footprints_of_val src_v in
+      let dst_v = lookup (eval_lv ~spec pid dst mem loc) mem in
+      let dst_arr, dst_fp = Val.array_of_val dst_v, Val.footprints_of_val dst_v in
       let np = ArrayBlk.nullof src_arr in
-      let newv = Val.of_array (ArrayBlk.set_null_pos dst_arr np) in
+      let newv, here = Val.of_array (ArrayBlk.set_null_pos dst_arr np), [%here] in
+      let newv = Val.modify_footprints'' here (src_fp :: dst_fp :: []) loc s_exp newv in
       let mem = mem |> update mode spec global (eval_lv ~spec pid dst mem loc) newv in
       (mem, global)
   | _ -> (mem, global)
