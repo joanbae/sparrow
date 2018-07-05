@@ -57,6 +57,8 @@ struct
       null_pos  = Itv.widen a1.null_pos a2.null_pos;
       structure = PowStruct.widen a1.structure a2.structure; }
 
+  let widen' ?loc a1 a2 = widen a1 a2
+
   let narrow a1 a2 =
     if a1 == a2 then a2 else
     { offset    = Itv.narrow a1.offset a2.offset;

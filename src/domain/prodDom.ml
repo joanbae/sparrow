@@ -50,6 +50,8 @@ struct
 
   let pp fmt (a, b) =
     Format.fprintf fmt "(%a, %a)" A.pp a B.pp b
+
+  let widen' ?loc x y = widen x y
 end
 
 module Make5 (A:CPO) (B:CPO) (C:CPO) (D:CPO) (E:CPO) =
@@ -87,6 +89,8 @@ struct
 
   let pp fmt (a, b, c, d, e) =
     Format.fprintf fmt "( %a, %a, %a, %a, %a )" A.pp a B.pp b C.pp c D.pp d E.pp e
+
+  let widen' ?loc x y = widen x y
 end
 
 module Make6 (A:CPO) (B:CPO) (C:CPO) (D:CPO) (E:CPO) (F:CPO) =
@@ -126,4 +130,5 @@ struct
   let pp fmt (a, b, c, d, e, f) =
     Format.fprintf fmt "( %a, %a, %a, %a, %a, %a )" A.pp a B.pp b C.pp c D.pp d E.pp e F.pp f
 
+  let widen' ?loc x y = widen x y
 end

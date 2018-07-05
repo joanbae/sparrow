@@ -14,7 +14,9 @@ module FP = Footprints
 
 module Val =
 struct
-  include ProdDom.Make6 (Itv) (PowLoc) (ArrayBlk) (StructBlk) (PowProc) (Footprints)
+  module M = ProdDom.Make6 (Itv) (PowLoc) (ArrayBlk) (StructBlk) (PowProc) (Footprints)
+  include M
+
   let null = (Itv.bot, PowLoc.null, ArrayBlk.bot, StructBlk.bot, PowProc.bot, Footprints.bot)
   let is_itv (i,_,_,_,_,_) = not (Itv.is_bot i)
   let is_array (_,_,a,_,_,_) = not (ArrayBlk.is_empty a)
@@ -85,6 +87,12 @@ struct
     ^(StructBlk.to_string (frth x))^", "
     ^(PowProc.to_string (fifth x))^", "
     ^(Footprints.to_string (sixth x))^")"
+
+  let dummy_loc: Cil.location=  {line = -1; file = "" ; byte = 0}
+  let widen' ?(loc=dummy_loc): t -> t -> t = fun x y ->
+    let v, here = M.widen x y, [%here] in
+    modify_footprints here loc "no_arg" v
+
 end
 
 module Mem =

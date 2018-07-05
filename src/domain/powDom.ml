@@ -142,6 +142,9 @@ struct
     in
     if is_empty x then Format.fprintf fmt "bot"
     else Format.fprintf fmt "@[<hov 2>{%a}@]" pp_elt x
+
+  let dummy_loc: Cil.location=  {line = -1; file = "" ; byte = 0}
+  let widen' ?(loc=dummy_loc) x y = widen x y
 end
 
 module MakeLAT (A:SET) =
@@ -273,4 +276,7 @@ struct
   let pp fmt = function
     | V s -> PowCPO.pp fmt s
     | _ -> Format.fprintf fmt "top"
+
+  let dummy_loc: Cil.location=  {line = -1; file = "" ; byte = 0}
+  let widen' ?(loc=dummy_loc) x y = widen x y
 end

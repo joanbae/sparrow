@@ -42,6 +42,7 @@ module Cmd : sig
 
   val fromCilStmt : Cil.stmtkind -> t
   val to_string : t -> string
+  val location_of : t -> Cil.location
 end
 
 (** Abstract type of intra-procedural CFG *)

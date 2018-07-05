@@ -266,6 +266,8 @@ struct
     | V x, V y ->
       V (Abstract1.widening man x y)
 
+  let widen' ?loc x y = widen x y
+
   let narrow : t -> t -> t
   = fun x y -> y (* TODO *)
 end
@@ -273,7 +275,9 @@ end
 
 module Mem =
 struct
-  include InstrumentedMem.Make (MapDom.MakeCPO (Pack) (Octagon))
+  module M = MapDom.MakeCPO (Pack) (Octagon)
+
+  include InstrumentedMem.Make (M)
 
   let top packconf =
     PackConf.fold (fun pack -> add pack (Octagon.top pack)) packconf bot
@@ -285,4 +289,6 @@ struct
         if Pack.cardinal pack > 2 then
           s^(Pack.to_string pack)^" -> "^(Octagon.to_string v)
         else s) x ""
+
+  let widen' ?loc x y = M.widen x y
 end

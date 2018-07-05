@@ -13,7 +13,7 @@
  * ****************** *)
 open Ppx_compare_lib.Builtin
 
-let threshold = BatSet.of_list [0;1;16;64]
+let threshold = BatSet.of_list [0;16;64]
 
 
 (* ************************ *
@@ -496,3 +496,5 @@ let prune : Cil.binop -> t -> t -> t = fun op x y ->
       | Cil.Ne, V _, V _ -> x
       | _ -> invalid_arg "itv.ml:prune" in
     normalize pruned
+
+let widen' ?loc x y = widen x y

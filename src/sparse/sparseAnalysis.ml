@@ -88,7 +88,10 @@ struct
     let u = Profiler.event "SparseAnalysis.widening_unstable" (Dom.unstables old_output new_output is_unstb) def_locs in
     if u = [] then None
     else
-      let op = if needwidening idx works then Dom.B.widen else (fun _ y -> y) in
+      let cmd = InterCfg.cmdof global.icfg idx in
+      let loc = IntraCfg.Cmd.location_of cmd in
+      let op = if needwidening idx works then Dom.B.widen' ~loc else (fun _ y -> y) in
+      (* let op = if needwidening idx works then Dom.B.widen else (fun _ y -> y) in *)
       let _ = Profiler.start_event "SparseAnalysis.widening_new_output" in
       let u = List.map (fun (k, v1, v2) -> (k, op v1 v2)) u in
       let new_output = list_fold (fun (k, v) -> Dom.add k v) u old_output in

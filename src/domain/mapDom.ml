@@ -163,6 +163,19 @@ struct
           if B.eq widened_v B.bot then None else Some widened_v in
       BatMap.merge widen' x y
 
+  let dummy_loc: Cil.location=  {line = -1; file = "" ; byte = 0}
+  let widen' ?(loc=dummy_loc) x y =
+    if x == y then x else
+      let widen' k opt_v1 opt_v2 =
+        match opt_v1, opt_v2 with
+        | None, None -> None
+        | None, Some v
+        | Some v, None -> if B.eq v B.bot then None else Some v
+        | Some v1, Some v2 ->
+          let widened_v = B.widen' ~loc v1 v2 in
+          if B.eq widened_v B.bot then None else Some widened_v in
+      BatMap.merge widen' x y
+
   let narrow : t -> t -> t = fun x y ->
     if x == y then x else
       let narrow' k opt_v1 opt_v2 =
@@ -467,4 +480,6 @@ struct
   let pp fmt = function
     | V m -> MapCPO.pp fmt m
     | Top -> Format.fprintf fmt "top"
+
+  let widen' ?loc x y = widen x y
 end

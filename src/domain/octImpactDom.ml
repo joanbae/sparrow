@@ -170,11 +170,14 @@ struct
     | V (x, _, _) ->
       G.iter_edges (fun s d ->
           Format.fprintf fmt "@[<hov 2>%a - %a,@]" Node.pp s Node.pp d) x
+
+  let widen' ?loc x y = widen x y
 end
 
 module Mem =
 struct
-  include InstrumentedMem.Make (MapDom.MakeCPO (Pack) (AbsOct))
+  module M = MapDom.MakeCPO (Pack) (AbsOct)
+  include InstrumentedMem.Make (M)
   let init packconf =
     PackConf.fold (fun pack -> add pack AbsOct.top) packconf bot
 

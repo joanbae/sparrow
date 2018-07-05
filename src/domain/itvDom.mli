@@ -34,6 +34,7 @@ module Val : sig
   val external_value : BasicDom.Allocsite.t -> t
   val itv_top : t
   val cast : Cil.typ -> Cil.typ -> t -> Cil.location * Cil.exp -> t
+  val widen' : ?loc:Cil.location -> t -> t -> t
 end
 
 module Mem : sig

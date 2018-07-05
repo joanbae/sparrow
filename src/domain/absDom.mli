@@ -41,7 +41,8 @@ sig
 
   val widen : t -> t -> t
   val narrow : t -> t -> t
-end
+  val widen' : ?loc:Cil.location -> t -> t -> t
+ end
 
 (** Signature of lattice *)
 module type LAT =
