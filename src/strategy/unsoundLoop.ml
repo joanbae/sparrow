@@ -192,6 +192,7 @@ let incptr_itself_by_one (lv,e) =
 
 let add_cstring global cond_node cfg feat =
   let pid = Node.get_pid cond_node in
+  let n_num = InterCfg.Node.to_string cond_node in
   let access = AccessSem.accessof global cond_node sem_fun global.mem in
   let locset = Access.Info.accessof access in
   (* while (c = *x++)   ==>  tmp = x; x++; c = *tmp; while(c) *)
@@ -209,7 +210,7 @@ let add_cstring global cond_node cfg feat =
          IntraCfg.Cmd.Cset (lv2, e2,_),
          IntraCfg.Cmd.Cset (lv3, Lval lv4, _))
           when  incptr_itself_by_one (lv2, e2) && lv2 = lv4 ->
-          PowLoc.join locset (ItvSem.eval_lv pid lv2 global.mem loc )
+          PowLoc.join locset (ItvSem.eval_lv pid lv2 global.mem loc n_num)
       | _ -> locset
     else locset
   in
@@ -310,11 +311,12 @@ let add_close_left_arr_size_offset global cond_node cfg feat =
   let node = Node.get_cfgnode cond_node in
   let cmd = IntraCfg.find_cmd node cfg in
   let qs = AlarmExp.collect cmd in
+  let n_num = InterCfg.Node.to_string cond_node in
   List.fold_left (fun feat q ->
         match q with
           AlarmExp.ArrayExp (arr, i, loc)
         | AlarmExp.DerefExp (BinOp (_, Lval arr, i, _), loc) ->
-            let v1 = Mem.lookup (ItvSem.eval_lv pid arr global.mem loc) global.mem in
+            let v1 = Mem.lookup (ItvSem.eval_lv pid arr global.mem loc n_num) global.mem in
             let size = ArrayBlk.sizeof (Val.array_of_val v1) in
             let offset = ArrayBlk.offsetof (Val.array_of_val v1) in
             let feat =
@@ -443,9 +445,10 @@ let add_init global conds cfg scc feat =
       | _ -> set) PowLoc.bot qs in
   let feat = List.fold_left (fun feat node ->
       let cmd = IntraCfg.find_cmd node cfg in
+      let n_num = IntraCfg.Node.to_string node in
       match cmd with
         IntraCfg.Cmd.Cset (x, _, loc) ->
-          let set = PowLoc.remove Loc.null (ItvSem.eval_lv pid x global.mem loc) in
+          let set = PowLoc.remove Loc.null (ItvSem.eval_lv pid x global.mem loc n_num) in
           if PowLoc.bot <> (PowLoc.meet set idx_in_scc) then
             { feat with init_index = true }
           else if PowLoc.bot <> (PowLoc.meet set buf_in_scc) then

@@ -47,48 +47,51 @@ struct
   let modify_arr : ArrayBlk.t -> t -> t = fun a x ->
     (itv_of_val x, pow_loc_of_val x, a, struct_of_val x, pow_proc_of_val x, footprints_of_val x)
 
-  let modify_footprints : Lexing.position -> Cil.location -> string -> t -> t
-    = fun here loc e x ->
-      let f = Footprints.add (Footprint.of_here here loc e) (footprints_of_val x) in
+  let modify_footprints : Lexing.position -> Cil.location -> string -> string -> t -> t
+    = fun here loc e n_num x ->
+      let f = Footprints.add (Footprint.of_here here loc e n_num) (footprints_of_val x) in
       (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f)
 
   (*eval_lv에서 나오는 Footprint를 처리하기 위해서 쓴다.*)
-  let modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> string -> t -> t
-    = fun here fp loc e x ->
-      let f = Footprints.add (Footprint.of_here here loc e) (footprints_of_val x) in
+  let modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> string -> string -> t -> t
+    = fun here fp loc e n_num x ->
+      let f = Footprints.add (Footprint.of_here here loc e n_num) (footprints_of_val x) in
       let f' = Footprints.join fp f in
       (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f')
 
   (* For joining multiple footprints *)
-  let modify_footprints'' : Lexing.position -> Footprints.t list -> Cil.location -> string -> t -> t
-    = fun here fps loc e x ->
+  let modify_footprints'' : Lexing.position -> Footprints.t list -> Cil.location -> string -> string -> t -> t
+    = fun here fps loc e n_num x ->
       let rec fp_join fps res =
         match fps with
           [] -> res
         | hd::tl -> fp_join tl (Footprints.join hd res)
       in
       let fps = fp_join fps Footprints.empty in
-      modify_footprints' here fps loc e x
-    
+      modify_footprints' here fps loc e n_num x
+
+  let modify_footprints''' : Lexing.position list -> Cil.location -> string -> string -> t -> t
+    = fun hlst loc e n_num x -> List.fold_left (fun v here -> modify_footprints here loc e n_num v) x hlst
+
   let external_value : Allocsite.t -> t = fun allocsite ->
     (Itv.top, PowLoc.bot, ArrayBlk.extern allocsite, StructBlk.extern (), PowProc.bot, Footprints.bot)
 
   let itv_top : t = (Itv.top, PowLoc.bot, ArrayBlk.bot, StructBlk.bot, PowProc.bot, Footprints.bot)
 
-  let cast : Cil.typ -> Cil.typ -> t -> (Cil.location * Cil.exp) -> t
-  = fun from_typ to_typ v (loc, exp) ->
+  let cast : Cil.typ -> Cil.typ -> t -> (Cil.location * Cil.exp) -> string ->  t
+  = fun from_typ to_typ v (loc, exp) n_num ->
     let fp = footprints_of_val v in
     let s_exp = CilHelper.s_exp exp in
     let (from_typ, to_typ) = BatTuple.Tuple2.mapn Cil.unrollTypeDeep (from_typ, to_typ) in
     if v = (of_itv Itv.zero) && (Cil.isPointerType to_typ) then (* char* x = (char* ) 0 *)
       let res, here = null, [%here] in
-      modify_footprints' here fp loc s_exp res
+      modify_footprints' here fp loc s_exp n_num res
     else if Cil.isIntegralType to_typ then
     let itv, here = Itv.cast from_typ to_typ (itv_of_val v), [%here] in
-    modify_footprints' here fp loc s_exp (of_itv itv)
+    modify_footprints' here fp loc s_exp n_num (of_itv itv)
     else
       let arr, here = ArrayBlk.cast_array to_typ (array_of_val v), [%here] in
-      modify_footprints' here fp loc s_exp (flip modify_arr v arr)
+      modify_footprints' here fp loc s_exp n_num (flip modify_arr v arr)
 
   let to_string x =
    "("^(Itv.to_string (fst x))^", "^(PowLoc.to_string (snd x))^", "

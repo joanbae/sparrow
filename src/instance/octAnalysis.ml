@@ -30,7 +30,7 @@ let string_of_alarminfo offset size diff =
   "offset: " ^ Itv.to_string offset ^ ", size: " ^ Itv.to_string size
   ^ ", size - offset: "^ Itv.to_string diff
 
-let check packconf pid v1 v2opt v2exp ptrmem mem loc : (status * Allocsite.t option * string) list =
+let check packconf pid v1 v2opt v2exp ptrmem mem loc n_num : (status * Allocsite.t option * string) list =
   let arr = ItvDom.Val.array_of_val v1 in
   if ArrayBlk.eq arr ArrayBlk.bot || ArrayBlk.cardinal arr > 1 then
     ItvAnalysis.check_bo v1 v2opt
@@ -43,7 +43,7 @@ let check packconf pid v1 v2opt v2exp ptrmem mem loc : (status * Allocsite.t opt
       let diff =
         match v2exp with
           None -> Itv.minus arr.ArrInfo.size offset_idx
-        | Some e -> OctSem.check_bo pid packconf a arr.ArrInfo.offset e ptrmem mem loc
+        | Some e -> OctSem.check_bo pid packconf a arr.ArrInfo.offset e ptrmem mem loc n_num
       in
       let status =
         if Itv.is_bot offset_idx || Itv.is_bot arr.ArrInfo.size then BotAlarm
@@ -66,6 +66,7 @@ let inspect_aexp : PackConf.t -> InterCfg.node -> AlarmExp.t -> ItvDom.Mem.t ->
   Mem.t -> query list -> query list
 =fun packconf node aexp ptrmem mem queries ->
   let pid = InterCfg.Node.get_pid node in
+  let n_num = InterCfg.Node.to_string node in  
   (if !Options.oct_debug then
   begin
     prerr_endline "query";
@@ -73,20 +74,20 @@ let inspect_aexp : PackConf.t -> InterCfg.node -> AlarmExp.t -> ItvDom.Mem.t ->
   end);
   (match aexp with
   | ArrayExp (lv, e, loc) ->
-      let v1 = ItvDom.Mem.lookup (ItvSem.eval_lv (InterCfg.Node.get_pid node) lv ptrmem loc) ptrmem in
-      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem loc in
-      check packconf pid v1 (Some v2) (Some e) ptrmem mem loc
+      let v1 = ItvDom.Mem.lookup (ItvSem.eval_lv (InterCfg.Node.get_pid node) lv ptrmem loc n_num) ptrmem in
+      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem loc n_num in
+      check packconf pid v1 (Some v2) (Some e) ptrmem mem loc n_num
       |> List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc;
           allocsite = a; status = status; desc = desc })
   | DerefExp (Cil.BinOp (op, e1, e2, _) , loc) when op = Cil.PlusPI || op = Cil.IndexPI ->
-      let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem loc in
-      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem loc in
-      check packconf pid v1 (Some v2) (Some e2) ptrmem mem loc
+      let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem loc n_num in
+      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem loc n_num in
+      check packconf pid v1 (Some v2) (Some e2) ptrmem mem loc n_num
       |> List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = a;
         status = status; desc = desc })
   | DerefExp (e,loc) ->
-      let v = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem loc in
-      check packconf pid v None None ptrmem mem loc
+      let v = ItvSem.eval (InterCfg.Node.get_pid node) e ptrmem loc n_num in
+      check packconf pid v None None ptrmem mem loc n_num
       |> cond (ItvDom.Val.eq ItvDom.Val.bot v)
           (List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = a;
                      status = status; desc = desc }))
@@ -98,30 +99,30 @@ let inspect_aexp : PackConf.t -> InterCfg.node -> AlarmExp.t -> ItvDom.Mem.t ->
                         { node = node; exp = aexp; loc = loc; allocsite = a; status = status;
                           desc = desc }))
   | Strcpy (e1, e2, loc) ->
-      let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem loc in
-      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem loc in
+      let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem loc n_num in
+      let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem loc n_num in
       let v2 = ItvDom.Val.of_itv (ArrayBlk.nullof (ItvDom.Val.array_of_val v2)) in
-      check packconf pid v1 (Some v2) None ptrmem mem loc
+      check packconf pid v1 (Some v2) None ptrmem mem loc n_num
       |> List.map (fun (status,a,desc) ->
           { node = node; exp = aexp; loc = loc; allocsite = a; status = status; desc = desc })
     | Strcat (e1, e2, loc) ->
-        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem loc in
-        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem loc in
+        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem loc n_num in
+        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem loc n_num in
         let np1 = ArrayBlk.nullof (ItvDom.Val.array_of_val v1) in
         let np2 = ArrayBlk.nullof (ItvDom.Val.array_of_val v2) in
         let np = ItvDom.Val.of_itv (Itv.plus np1 np2) in
-        check packconf pid v1 (Some np) None ptrmem mem loc
+        check packconf pid v1 (Some np) None ptrmem mem loc n_num
         |> List.map (fun (status,a,desc) ->
             { node = node; exp = aexp; loc = loc; allocsite = a; status = status; desc = desc })
     | Strncpy (e1, e2, e3, loc)
     | Memcpy (e1, e2, e3, loc)
     | Memmove (e1, e2, e3, loc) ->
-        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem loc in
-        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem loc in
+        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 ptrmem loc n_num in
+        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 ptrmem loc n_num in
         let e3_1 = Cil.BinOp (Cil.MinusA, e3, Cil.mone, Cil.intType) in
-        let v3 = ItvSem.eval (InterCfg.Node.get_pid node) e3_1 ptrmem loc in
-        let lst1 = check packconf pid v1 (Some v3) (Some e3) ptrmem mem loc in
-        let lst2 = check packconf pid v2 (Some v3) (Some e2) ptrmem mem loc in
+        let v3 = ItvSem.eval (InterCfg.Node.get_pid node) e3_1 ptrmem loc n_num in
+        let lst1 = check packconf pid v1 (Some v3) (Some e3) ptrmem mem loc n_num in
+        let lst2 = check packconf pid v2 (Some v3) (Some e2) ptrmem mem loc n_num in
         (lst1@lst2)
         |> List.map (fun (status,a,desc) ->
             { node = node; exp = aexp; loc = loc; allocsite = a; status = status; desc = desc })
@@ -146,33 +147,33 @@ let inspect_alarm : Global.t -> Spec.t -> Table.t -> Report.query list
   |> fst
 
 (* x = y *)
-let sparrow_relation_set pid mem exps rel loc =
+let sparrow_relation_set pid mem exps rel loc n_num =
   match exps with
     (Cil.Lval x)::(Cil.Lval y)::_ ->
-      let lv_x = ItvSem.eval_lv pid x mem loc in
-      let lv_y = ItvSem.eval_lv pid y mem loc in
+      let lv_x = ItvSem.eval_lv pid x mem loc n_num in
+      let lv_y = ItvSem.eval_lv pid y mem loc n_num in
       PowLoc.fold (fun x ->
           PowLoc.fold (fun y ->
             OctImpactDom.Relation.add_edge (OctLoc.of_loc x) (OctLoc.of_loc y)) lv_y) lv_x rel
   | _ -> rel
 
 (* x = malloc(y) *)
-let sparrow_relation_malloc pid mem exps rel loc =
+let sparrow_relation_malloc pid mem exps rel loc n_num =
   match exps with
     x::(Cil.Lval y)::_ ->
-      let lv_x = ItvSem.eval pid x mem loc |> ItvDom.Val.allocsites_of_val in
-      let lv_y = ItvSem.eval_lv pid y mem loc in
+      let lv_x = ItvSem.eval pid x mem loc n_num |> ItvDom.Val.allocsites_of_val in
+      let lv_y = ItvSem.eval_lv pid y mem loc n_num in
       BatSet.fold (fun x ->
           PowLoc.fold (fun y ->
             OctImpactDom.Relation.add_edge (OctLoc.of_size x) (OctLoc.of_loc y)) lv_y) lv_x rel
   | _ -> rel
 
 (* x = strlen(y) *)
-let sparrow_relation_strlen pid mem exps rel loc =
+let sparrow_relation_strlen pid mem exps rel loc n_num =
   match exps with
     (Cil.Lval x)::y::_ ->
-      let lv_x = ItvSem.eval_lv pid x mem loc in
-      let lv_y = ItvSem.eval pid y mem loc |> ItvDom.Val.allocsites_of_val in
+      let lv_x = ItvSem.eval_lv pid x mem loc n_num in
+      let lv_y = ItvSem.eval pid y mem loc n_num |> ItvDom.Val.allocsites_of_val in
       PowLoc.fold (fun x ->
           BatSet.fold (fun y ->
             OctImpactDom.Relation.add_edge (OctLoc.of_loc x) (OctLoc.of_size y)) lv_y) lv_x rel
@@ -184,11 +185,12 @@ let manual_packing : Global.t * ItvDom.Table.t -> PackConf.t
   list_fold (fun n a ->
       let mem = ItvDom.Table.find n itvinputof in
       let pid = InterCfg.Node.get_pid n in
+      let n_num = InterCfg.Node.to_string n in  
       match InterCfg.cmdof global.icfg n with
       | IntraCfg.Cmd.Ccall (None, Cil.Lval (Cil.Var f, Cil.NoOffset), exps, loc) ->
-        if f.vname = "sparrow_relation_set" then sparrow_relation_set pid mem exps a loc
-        else if f.vname = "sparrow_relation_malloc" then sparrow_relation_malloc pid mem exps a loc
-        else if f.vname = "sparrow_relation_strlen" then sparrow_relation_strlen pid mem exps a loc
+        if f.vname = "sparrow_relation_set" then sparrow_relation_set pid mem exps a loc n_num
+        else if f.vname = "sparrow_relation_malloc" then sparrow_relation_malloc pid mem exps a loc n_num
+        else if f.vname = "sparrow_relation_strlen" then sparrow_relation_strlen pid mem exps a loc n_num
         else a
       | _ -> a
   ) nodes OctImpactDom.Relation.empty

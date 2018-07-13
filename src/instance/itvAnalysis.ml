@@ -83,76 +83,78 @@ let check_nd v1 : (status * Allocsite.t option * string) list =
     else [(Proven, None, "")]
          
 let inspect_aexp_bo : InterCfg.node -> AlarmExp.t -> Mem.t -> query list -> query list
-=fun node aexp mem queries ->
-  (match aexp with
-   | ArrayExp (lv, e, loc) ->
-     let lv = ItvSem.eval_lv (InterCfg.Node.get_pid node) lv mem loc in
-     let v1 = Mem.lookup lv mem in
-     let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e mem loc in
-     let lst = check_bo v1 (Some v2) in
-     List.map (fun (status,a,desc) ->
-         { node = node; exp = aexp; loc = loc; allocsite = a;
-           status = status; desc = desc }) lst
-    | DerefExp (e,loc) ->
-        let v = ItvSem.eval (InterCfg.Node.get_pid node) e mem loc in
-        let lst = check_bo v None in
-          if Val.eq Val.bot v then
-            List.map (fun (status,a,desc) ->
-              { node = node; exp = aexp; loc = loc; allocsite = a;
-              status = status; desc = desc }) lst
-          else
-            List.map (fun (status,a,desc) ->
-              if status = BotAlarm
-              then { node = node; exp = aexp; loc = loc; status = Proven; allocsite = a;
-                     desc = "valid pointer dereference" }
-              else { node = node; exp = aexp; loc = loc; status = status; allocsite = a;
-                     desc = desc }) lst
-    | Strcpy (e1, e2, loc) ->
-        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 mem loc in
-        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 mem loc in
-        let v2 = Val.of_itv (ArrayBlk.nullof (Val.array_of_val v2)) in
-        let lst = check_bo v1 (Some v2) in
-        List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = a;
-            status = status; desc = desc }) lst
-    | Strcat (e1, e2, loc) ->
-        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 mem loc in
-        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 mem loc in
-        let np1 = ArrayBlk.nullof (Val.array_of_val v1) in
-        let np2 = ArrayBlk.nullof (Val.array_of_val v2) in
-        let np = Val.of_itv (Itv.plus np1 np2) in
-        let lst = check_bo v1 (Some np) in
-        List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = a;
-            status = status; desc = desc }) lst
-    | Strncpy (e1, e2, e3, loc)
-    | Memcpy (e1, e2, e3, loc)
-    | Memmove (e1, e2, e3, loc) ->
-        let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 mem loc in
-        let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 mem loc in
-        let e3_1 = Cil.BinOp (Cil.MinusA, e3, Cil.one, Cil.intType) in
-        let v3 = ItvSem.eval (InterCfg.Node.get_pid node) e3_1 mem loc in
-        let lst1 = check_bo v1 (Some v3) in
-        let lst2 = check_bo v2 (Some v3) in
-        List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = a;
-            status = status; desc = desc }) (lst1@lst2)
-    | _ -> []) @ queries
+  =fun node aexp mem queries ->
+    let n_num = InterCfg.Node.to_string node in
+    (match aexp with
+     | ArrayExp (lv, e, loc) ->
+       let lv = ItvSem.eval_lv (InterCfg.Node.get_pid node) lv mem loc n_num in
+       let v1 = Mem.lookup lv mem in
+       let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e mem loc n_num in
+       let lst = check_bo v1 (Some v2) in
+       List.map (fun (status,a,desc) ->
+           { node = node; exp = aexp; loc = loc; allocsite = a;
+             status = status; desc = desc }) lst
+     | DerefExp (e,loc) ->
+       let v = ItvSem.eval (InterCfg.Node.get_pid node) e mem loc n_num in
+       let lst = check_bo v None in
+       if Val.eq Val.bot v then
+         List.map (fun (status,a,desc) ->
+             { node = node; exp = aexp; loc = loc; allocsite = a;
+               status = status; desc = desc }) lst
+       else
+         List.map (fun (status,a,desc) ->
+             if status = BotAlarm
+             then { node = node; exp = aexp; loc = loc; status = Proven; allocsite = a;
+                    desc = "valid pointer dereference" }
+             else { node = node; exp = aexp; loc = loc; status = status; allocsite = a;
+                    desc = desc }) lst
+     | Strcpy (e1, e2, loc) ->
+       let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 mem loc n_num in
+       let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 mem loc n_num in
+       let v2 = Val.of_itv (ArrayBlk.nullof (Val.array_of_val v2)) in
+       let lst = check_bo v1 (Some v2) in
+       List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = a;
+                                          status = status; desc = desc }) lst
+     | Strcat (e1, e2, loc) ->
+       let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 mem loc n_num in
+       let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 mem loc n_num in
+       let np1 = ArrayBlk.nullof (Val.array_of_val v1) in
+       let np2 = ArrayBlk.nullof (Val.array_of_val v2) in
+       let np = Val.of_itv (Itv.plus np1 np2) in
+       let lst = check_bo v1 (Some np) in
+       List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = a;
+                                          status = status; desc = desc }) lst
+     | Strncpy (e1, e2, e3, loc)
+     | Memcpy (e1, e2, e3, loc)
+     | Memmove (e1, e2, e3, loc) ->
+       let v1 = ItvSem.eval (InterCfg.Node.get_pid node) e1 mem loc n_num in
+       let v2 = ItvSem.eval (InterCfg.Node.get_pid node) e2 mem loc n_num in
+       let e3_1 = Cil.BinOp (Cil.MinusA, e3, Cil.one, Cil.intType) in
+       let v3 = ItvSem.eval (InterCfg.Node.get_pid node) e3_1 mem loc n_num in
+       let lst1 = check_bo v1 (Some v3) in
+       let lst2 = check_bo v2 (Some v3) in
+       List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = a;
+                                          status = status; desc = desc }) (lst1@lst2)
+     | _ -> []) @ queries
 
 let inspect_aexp_nd : InterCfg.node -> AlarmExp.t -> Mem.t -> query list -> query list
-=fun node aexp mem queries ->
-  (match aexp with
-  | DerefExp (e,loc) ->
-    let v = ItvSem.eval (InterCfg.Node.get_pid node) e mem loc in
-    let lst = check_nd v in
-      if Val.eq Val.bot v then
-        List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = a;
-          status = status; desc = desc }) lst
-      else
-        List.map (fun (status,a,desc) ->
-          if status = BotAlarm
-          then { node = node; exp = aexp; loc = loc; status = Proven; allocsite = a;
-            desc = "valid pointer dereference" }
-          else { node = node; exp = aexp; loc = loc; status = status; allocsite = a;
-            desc = desc }) lst
-  | _ -> []) @ queries
+  =fun node aexp mem queries ->
+    let n_num = InterCfg.Node.to_string node in
+    (match aexp with
+     | DerefExp (e,loc) ->
+       let v = ItvSem.eval (InterCfg.Node.get_pid node) e mem loc n_num in
+       let lst = check_nd v in
+       if Val.eq Val.bot v then
+         List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = a;
+                                            status = status; desc = desc }) lst
+       else
+         List.map (fun (status,a,desc) ->
+             if status = BotAlarm
+             then { node = node; exp = aexp; loc = loc; status = Proven; allocsite = a;
+                    desc = "valid pointer dereference" }
+             else { node = node; exp = aexp; loc = loc; status = status; allocsite = a;
+                    desc = desc }) lst
+     | _ -> []) @ queries
 
 let check_dz v =
   let v = Val.itv_of_val v in
@@ -161,35 +163,36 @@ let check_dz v =
   else [(Proven, None, "")]
 
 let inspect_aexp_dz : InterCfg.node -> AlarmExp.t -> Mem.t -> query list -> query list
-= fun node aexp mem queries ->
-  (match aexp with
-      DivExp (_, e, loc) ->
-      let v = ItvSem.eval (InterCfg.Node.get_pid node) e mem loc in
-      let lst = check_dz v in
-        List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = None;
-          status = status; desc = desc }) lst
-  | _ -> []) @ queries
+  = fun node aexp mem queries ->
+    let n_num = InterCfg.Node.to_string node in
+    (match aexp with
+       DivExp (_, e, loc) ->
+       let v = ItvSem.eval (InterCfg.Node.get_pid node) e mem loc n_num in
+       let lst = check_dz v in
+       List.map (fun (status,a,desc) -> { node = node; exp = aexp; loc = loc; allocsite = None;
+                                          status = status; desc = desc }) lst
+     | _ -> []) @ queries
 
 let machine_gen_code : query -> bool
-= fun q ->
-  (* yacc-generated code *)
-  Filename.check_suffix q.loc.Cil.file ".y" || Filename.check_suffix q.loc.Cil.file ".yy.c" ||
-  Filename.check_suffix q.loc.Cil.file ".simple" ||
-  (* sparrow-generated code *)
-  InterCfg.Node.get_pid q.node = InterCfg.global_proc
+  = fun q ->
+    (* yacc-generated code *)
+    Filename.check_suffix q.loc.Cil.file ".y" || Filename.check_suffix q.loc.Cil.file ".yy.c" ||
+    Filename.check_suffix q.loc.Cil.file ".simple" ||
+    (* sparrow-generated code *)
+    InterCfg.Node.get_pid q.node = InterCfg.global_proc
 
 let rec unsound_exp : Cil.exp -> bool
-= fun e ->
-  match e with
-  | Cil.BinOp (Cil.PlusPI, Cil.Lval (Cil.Mem _, _), _, _) -> true
-  | Cil.BinOp (b, _, _, _) when b = Mod || b = Cil.Shiftlt || b = Shiftrt || b = BAnd
-      || b = BOr || b = BXor || b = LAnd || b = LOr -> true
-  | Cil.BinOp (bop, Cil.Lval (Cil.Var _, _), Cil.Lval (Cil.Var _, _), _)
-    when bop = Cil.PlusA || bop = Cil.MinusA -> true
-  | Cil.BinOp (_, e1, e2, _) -> (unsound_exp e1) || (unsound_exp e2)
-  | Cil.CastE (_, e) -> unsound_exp e
-  | Cil.Lval lv -> unsound_lv lv
-  | _ -> false
+  = fun e ->
+    match e with
+    | Cil.BinOp (Cil.PlusPI, Cil.Lval (Cil.Mem _, _), _, _) -> true
+    | Cil.BinOp (b, _, _, _) when b = Mod || b = Cil.Shiftlt || b = Shiftrt || b = BAnd
+                                  || b = BOr || b = BXor || b = LAnd || b = LOr -> true
+    | Cil.BinOp (bop, Cil.Lval (Cil.Var _, _), Cil.Lval (Cil.Var _, _), _)
+      when bop = Cil.PlusA || bop = Cil.MinusA -> true
+    | Cil.BinOp (_, e1, e2, _) -> (unsound_exp e1) || (unsound_exp e2)
+    | Cil.CastE (_, e) -> unsound_exp e
+    | Cil.Lval lv -> unsound_lv lv
+    | _ -> false
 
 and unsound_lv : Cil.lval -> bool = function
   | (_, Cil.Index _) -> true

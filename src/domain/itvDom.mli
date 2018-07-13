@@ -29,12 +29,13 @@ module Val : sig
   val of_footprints : Footprints.t -> t
   val modify_itv : Itv.t -> t -> t
   val modify_arr : ArrayBlk.t -> t -> t
-  val modify_footprints : Lexing.position -> Cil.location -> string -> t -> t
-  val modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> string -> t -> t
-  val modify_footprints'' : Lexing.position -> Footprints.t list -> Cil.location -> string -> t -> t
+  val modify_footprints : Lexing.position -> Cil.location -> string -> string -> t -> t
+  val modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> string -> string -> t -> t
+  val modify_footprints'' : Lexing.position -> Footprints.t list -> Cil.location -> string -> string -> t -> t
+  val modify_footprints''' : Lexing.position list -> Cil.location -> string -> string -> t -> t
   val external_value : BasicDom.Allocsite.t -> t
   val itv_top : t
-  val cast : Cil.typ -> Cil.typ -> t -> Cil.location * Cil.exp -> t
+  val cast : Cil.typ -> Cil.typ -> t -> Cil.location * Cil.exp -> string -> t
 end
 
 module Mem : sig

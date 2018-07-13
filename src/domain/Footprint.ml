@@ -2,7 +2,8 @@ type t = {
   file: string; (** The analyzer's fileName **)
   line: int;    (** Line number in that file **)
   src_location: Cil.location; (** Describe a location in a C source file **)
-  exp : string
+  exp : string;
+  n_num: string  (** Node number **)
 }
 
 let compare x y =
@@ -14,17 +15,21 @@ let pp fmt {file; line;
             src_location = {Cil.file = src_file;
                             line = src_line;
                             byte = src_byte};
-           exp} =
+           exp; n_num} =
   let file_name =  Filename.basename file in
-  Format.fprintf fmt "%s@%s:%d(%s:%d:%d)" exp file_name line src_file src_line src_byte
+  Format.fprintf fmt "%s@%s:%d(%s:%d:%d)@%s" exp file_name line src_file src_line src_byte n_num
 
 let to_string x =
   pp Format.str_formatter x;
   Format.flush_str_formatter ()
 
-let of_here here src_location exp : t =
+let of_here here src_location exp n_num : t =
   { file = here.Lexing.pos_fname;
     line = here.Lexing.pos_lnum;
     src_location;
-    exp}
+    exp;
+    n_num
+  }
 
+  (* print_endline("Cmd is"^Cmd.to_string (InterCfg.cmdof global.icfg node));
+   * print_endline("node is=> "^InterCfg.Node.to_string node); *)

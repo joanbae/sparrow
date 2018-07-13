@@ -196,8 +196,9 @@ let add_gvar global node feat =
 
 let add_finite global node exps feat loc =
   let pid = Node.get_pid node in
+  let n_num = InterCfg.Node.to_string node in
   let is_finite e =
-    let v = ItvSem.eval pid e global.mem loc in
+    let v = ItvSem.eval pid e global.mem loc n_num in
     let itv = Val.itv_of_val v in
     let arr = Val.array_of_val v in
     (Itv.is_finite itv) || (Itv.is_finite (ArrayBlk.sizeof arr))
