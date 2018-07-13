@@ -47,15 +47,21 @@ struct
   let modify_arr : ArrayBlk.t -> t -> t = fun a x ->
     (itv_of_val x, pow_loc_of_val x, a, struct_of_val x, pow_proc_of_val x, footprints_of_val x)
 
+  (* value without fp *)
+  let without_fp : t -> t = fun v ->
+    (itv_of_val v, pow_loc_of_val v, array_of_val v, struct_of_val v, pow_proc_of_val v, Footprints.empty) 
+
   let modify_footprints : Lexing.position -> Cil.location -> string -> string -> t -> t
     = fun here loc e n_num x ->
-      let f = Footprints.add (Footprint.of_here here loc e n_num) (footprints_of_val x) in
+      let s_only_v = without_fp x |> to_string in
+      let f = Footprints.add (Footprint.of_here here loc e n_num s_only_v) (footprints_of_val x) in
       (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f)
 
   (*eval_lv에서 나오는 Footprint를 처리하기 위해서 쓴다.*)
   let modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> string -> string -> t -> t
     = fun here fp loc e n_num x ->
-      let f = Footprints.add (Footprint.of_here here loc e n_num) (footprints_of_val x) in
+      let s_only_v = without_fp x |> to_string in
+      let f = Footprints.add (Footprint.of_here here loc e n_num s_only_v) (footprints_of_val x) in
       let f' = Footprints.join fp f in
       (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f')
 
