@@ -15,6 +15,7 @@ module FP = Footprints
 module Val =
 struct
   include ProdDom.Make6 (Itv) (PowLoc) (ArrayBlk) (StructBlk) (PowProc) (Footprints)
+  let fp_count = ref 0
   let null = (Itv.bot, PowLoc.null, ArrayBlk.bot, StructBlk.bot, PowProc.bot, Footprints.bot)
   let is_itv (i,_,_,_,_,_) = not (Itv.is_bot i)
   let is_array (_,_,a,_,_,_) = not (ArrayBlk.is_empty a)
@@ -27,7 +28,6 @@ struct
   let footprints_of_val : t -> Footprints.t = sixth
   let allocsites_of_val : t -> Allocsite.t BatSet.t
   = fun v -> v |> array_of_val |> ArrayBlk.allocsites_of_array
-
   let of_itv : Itv.t -> t = fun x ->
     (x, PowLoc.bot, ArrayBlk.bot, StructBlk.bot, PowProc.bot, Footprints.bot)
   let of_pow_loc : PowLoc.t -> t = fun x ->
@@ -51,17 +51,22 @@ struct
   let without_fp : t -> t = fun v ->
     (itv_of_val v, pow_loc_of_val v, array_of_val v, struct_of_val v, pow_proc_of_val v, Footprints.empty) 
 
+  let get_fp_count () : string =
+    let str = string_of_int !fp_count in
+    fp_count := !fp_count + 1;
+    str
+
   let modify_footprints : Lexing.position -> Cil.location -> string -> string -> t -> t
     = fun here loc e n_num x ->
       let s_only_v = without_fp x |> to_string in
-      let f = Footprints.add (Footprint.of_here here loc e n_num s_only_v) (footprints_of_val x) in
+      let f = Footprints.add (Footprint.of_here here loc e n_num s_only_v (get_fp_count ())) (footprints_of_val x) in
       (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f)
 
   (*eval_lv에서 나오는 Footprint를 처리하기 위해서 쓴다.*)
   let modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> string -> string -> t -> t
     = fun here fp loc e n_num x ->
       let s_only_v = without_fp x |> to_string in
-      let f = Footprints.add (Footprint.of_here here loc e n_num s_only_v) (footprints_of_val x) in
+      let f = Footprints.add (Footprint.of_here here loc e n_num s_only_v (get_fp_count ())) (footprints_of_val x) in
       let f' = Footprints.join fp f in
       (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f')
 

@@ -30,6 +30,7 @@ module Val : sig
   val modify_itv : Itv.t -> t -> t
   val modify_arr : ArrayBlk.t -> t -> t
   val without_fp : t -> t
+  val get_fp_count : unit -> string
   val modify_footprints : Lexing.position -> Cil.location -> string -> string -> t -> t
   val modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> string -> string -> t -> t
   val modify_footprints'' : Lexing.position -> Footprints.t list -> Cil.location -> string -> string -> t -> t
