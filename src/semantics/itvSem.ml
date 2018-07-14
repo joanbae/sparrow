@@ -380,11 +380,15 @@ let model_alloc_one mode spec pid lvo f (mem, global) loc n_num =
   match lvo with
     None -> (mem, global)
   | Some lv ->
+    let s_exp = CilHelper.s_lv lv in
     let allocsite = Allocsite.allocsite_of_ext (Some f.vname) in
-    let arr_val = ItvDom.Val.of_array (ArrayBlk.make allocsite Itv.zero Itv.one Itv.one Itv.nat) in
+    let arr_val, here = Val.of_array (ArrayBlk.make allocsite Itv.zero Itv.one Itv.one Itv.nat), [%here] in
+    let arr_val = Val.modify_footprints here loc s_exp (Val.to_string arr_val) arr_val in
     let ext_loc = PowLoc.singleton (Loc.of_allocsite allocsite) in
+    let ext_val, here = Val.itv_top, [%here] in
+    let ext_val = Val.modify_footprints here loc s_exp (Val.to_string ext_val) ext_val in
     let mem = update mode spec global (eval_lv ~spec pid lv mem loc n_num) arr_val mem in
-    let mem = update mode spec global ext_loc Val.itv_top mem in
+    let mem = update mode spec global ext_loc ext_val mem in
     (mem,global)
 
 let model_realloc mode spec node (lvo, exps) (mem, global) loc =
