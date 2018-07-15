@@ -1,0 +1,16 @@
+(main,p) -> (bot, bot, __extern__readdir -> ([0, 0], [0, 0], [280, 280], [0, +oo], {dirent}), bot, bot, {
+v:(bot, bot, __extern__readdir -> ([0, 0], [1, 1], [1, 1], [0, +oo], bot), bot, bot, bot) ==>readdir@itvSem.ml:387(test/case1of1.c:12:37616)@main-10, order:632})
+
+v:(bot, bot, __extern__readdir -> ([0, 0], [1, 1], [1, 1], [0, +oo], bot), bot, bot, bot) ==>tmp@itvDom.ml:105(test/case1of1.c:12:37616)@main-11, order:648,
+v:(bot, {(main,tmp)}, bot, bot, bot, bot) ==>tmp@itvSem.ml:163(test/case1of1.c:12:37616)@main-11, order:645,
+v:(bot, {(main,tmp)}, bot, bot, bot, bot) ==>tmp@itvSem.ml:193(test/case1of1.c:12:37616)@main-11, order:644,
+v:(bot, {(main,tmp)}, bot, bot, bot, bot) ==>tmp@itvSem.ml:200(test/case1of1.c:12:37616)@main-11, order:646,
+v:(bot, bot, __extern__readdir -> ([0, 0], [1, 1], [1, 1], [0, +oo], bot), bot, bot, bot) ==>tmp@itvSem.ml:216(test/case1of1.c:12:37616)@main-11, order:647,
+v:(bot, bot, __extern__readdir -> ([0, 0], [1, 1], [1, 1], [0, +oo], bot), bot, bot, bot) ==>(void *)tmp@itvSem.ml:256(test/case1of1.c:12:37616)@main-11, order:649,
+
+v:(bot, bot, __extern__readdir -> ([0, 0], [1, 1], [1, 1], [0, +oo], bot), bot, bot, bot) ==>ptr@itvSem.ml:216(test/case1of1.c:13:37649)@main-12, order:656,
+v:(bot, bot, __extern__readdir -> ([0, 0], [0, 0], [280, 280], [0, +oo], {dirent}), bot, bot, bot) ==>ptr@itvDom.ml:105(test/case1of1.c:13:37649)@main-12, order:657,
+v:(bot, bot, __extern__readdir -> ([0, 0], [0, 0], [280, 280], [0, +oo], {dirent}), bot, bot, bot) ==>(struct dirent *)ptr@itvSem.ml:256(test/case1of1.c:13:37649)@main-12, order:658,
+v:(bot, {(main,ptr)}, bot, bot, bot, bot) ==>ptr@itvSem.ml:200(test/case1of1.c:13:37649)@main-12, order:655,
+v:(bot, {(main,ptr)}, bot, bot, bot, bot) ==>ptr@itvSem.ml:193(test/case1of1.c:13:37649)@main-12, order:653,
+v:(bot, {(main,ptr)}, bot, bot, bot, bot) ==>ptr@itvSem.ml:163(test/case1of1.c:13:37649)@main-12, order:654,
