@@ -251,7 +251,8 @@ and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> stri
         Val.modify_footprints here loc s_exp n_num v
     | Cil.CastE (t, e) ->
       let v = eval ~spec pid e mem loc n_num in
-      (try Val.modify_footprints [%here] loc s_exp n_num (Val.cast (Cil.typeOf e) t v (loc, e) n_num) 
+      let fp_v = Val.footprints_of_val v in
+      (try Val.modify_footprints' [%here] fp_v loc s_exp n_num (Val.cast (Cil.typeOf e) t v (loc, e) n_num) 
        with _ -> Val.modify_footprints [%here] loc s_exp n_num v)
     | Cil.AddrOf l ->
       let powloc, fp = eval_lv_with_footprint ~spec pid l mem loc n_num in
@@ -383,7 +384,7 @@ let model_alloc_one mode spec pid lvo f (mem, global) loc n_num =
     let s_exp = CilHelper.s_lv lv in
     let allocsite = Allocsite.allocsite_of_ext (Some f.vname) in
     let arr_val, here = Val.of_array (ArrayBlk.make allocsite Itv.zero Itv.one Itv.one Itv.nat), [%here] in
-    let arr_val = Val.modify_footprints here loc s_exp (Val.to_string arr_val) arr_val in
+    let arr_val = Val.modify_footprints here loc s_exp n_num arr_val in
     let ext_loc = PowLoc.singleton (Loc.of_allocsite allocsite) in
     let ext_val, here = Val.itv_top, [%here] in
     let ext_val = Val.modify_footprints here loc s_exp (Val.to_string ext_val) ext_val in
