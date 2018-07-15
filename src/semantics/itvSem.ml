@@ -381,7 +381,7 @@ let model_alloc_one mode spec pid lvo f (mem, global) loc n_num =
   match lvo with
     None -> (mem, global)
   | Some lv ->
-    let s_exp = CilHelper.s_lv lv in
+    let s_exp = f.vname in
     let allocsite = Allocsite.allocsite_of_ext (Some f.vname) in
     let arr_val, here = Val.of_array (ArrayBlk.make allocsite Itv.zero Itv.one Itv.one Itv.nat), [%here] in
     let arr_val = Val.modify_footprints here loc s_exp n_num arr_val in
