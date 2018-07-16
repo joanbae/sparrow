@@ -19,7 +19,7 @@ let pp fmt {file; line;
                             byte = src_byte};
            exp; n_num; value; order} =
   let file_name =  Filename.basename file in
-  Format.fprintf fmt "\nv:%s ==>%s@%s:%d(%s:%d:%d)@%s, order:%s" value exp file_name line src_file src_line src_byte n_num order
+  Format.fprintf fmt "\n\tv:%s \n\t\t==>%s@%s:%d(%s:%d:%d)@%s, order:%s" value exp file_name line src_file src_line src_byte n_num order
 
 let to_string x =
   pp Format.str_formatter x;
