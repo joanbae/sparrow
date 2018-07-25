@@ -449,14 +449,15 @@ let model_strdup mode spec node (lvo, exps) (mem, global) loc' =
     (mem,global)
   | _ -> (mem,global)
 
-let model_input mode spec pid lvo (mem, global) loc n_num = 
+let model_input mode spec pid lvo (mem, global) loc n_num =
+  let modify_fp s_exp here v = Val.modify_footprints here loc s_exp n_num v in
   match lvo with
     Some lv ->
       let allocsite = Allocsite.allocsite_of_ext None in
-      let ext_v = Val.external_value allocsite in
+      let ext_v = Val.external_value allocsite |> modify_fp "None" [%here] in
       let ext_loc = PowLoc.singleton (Loc.of_allocsite allocsite) in
       let mem = update mode spec global (eval_lv ~spec pid lv mem loc n_num) ext_v mem in
-      let mem = update mode spec global ext_loc Val.itv_top mem in
+      let mem = update mode spec global ext_loc (Val.itv_top |> modify_fp "None" [%here]) mem in
         (mem,global)
   | _ -> (mem,global)
 
@@ -589,18 +590,20 @@ let model_memcpy mode spec pid (lvo, exps) (mem, global) loc n_num =
 
 let model_getpwent mode spec node pid lvo f (mem,global) loc =
   let n_num = InterCfg.Node.to_string node in
+  let modify_fp s_exp here v = Val.modify_footprints here loc s_exp n_num v in
   match lvo, f.vtype with
     Some lv, Cil.TFun ((Cil.TPtr ((Cil.TComp (comp, _) as elem_t), _) as ptr_t), _, _, _) ->
       let struct_loc = eval_lv ~spec pid lv mem loc n_num in
-      let struct_v = eval_array_alloc ~spec node (Cil.SizeOf elem_t) false mem loc n_num |>
-                     fun v -> Val.cast ptr_t (Cil.typeOfLval lv) v (loc, (Cil.Const (Cil.CStr "temp"))) n_num in
+      let struct_v = eval_array_alloc ~spec node (Cil.SizeOf elem_t) false mem loc n_num
+                     |> fun v -> Val.cast ptr_t (Cil.typeOfLval lv) v (loc, (Cil.Const (Cil.CStr "temp"))) n_num
+                     |> modify_fp "struct_v" [%here] in
       let field_loc = ArrayBlk.append_field (Val.array_of_val struct_v) (List.find (fun f -> f.fname ="pw_name") comp.cfields) in
       let allocsite = Allocsite.allocsite_of_ext (Some "getpwent.pw_name") in
-      let ext_v = ArrayBlk.input allocsite |> Val.of_array in
+      let ext_v = ArrayBlk.input allocsite |> Val.of_array |> modify_fp "pw_name" [%here] in
       let ext_loc = PowLoc.singleton (Loc.of_allocsite allocsite) in
       let mem = update mode spec global struct_loc struct_v mem
               |> update mode spec global field_loc ext_v
-              |> update mode spec global ext_loc Val.itv_top in
+              |> update mode spec global ext_loc (Val.itv_top |> modify_fp "none" [%here]) in
       (mem, global)
   | _ -> (mem, global)
 
@@ -749,6 +752,7 @@ let run : update_mode -> Spec.t -> Node.t -> Mem.t * Global.t -> Mem.t * Global.
 = fun mode spec node (mem, global) ->
   let pid = Node.get_pid node in
   let n_num = InterCfg.Node.to_string node in
+  let modify_fp loc s_exp here v = Val.modify_footprints here loc s_exp n_num v in
   match InterCfg.cmdof global.icfg node with
   | IntraCfg.Cmd.Cset (l, e, loc) ->
       (update mode spec global (eval_lv ~spec pid l mem loc n_num) (eval ~spec pid e mem loc n_num) mem, global)
@@ -760,7 +764,7 @@ let run : update_mode -> Spec.t -> Node.t -> Mem.t * Global.t -> Mem.t * Global.
          (mem,global)
      | _ ->
        let allocsite = Allocsite.allocsite_of_ext None in
-       let ext_v = Val.external_value allocsite in
+       let ext_v = Val.external_value allocsite |> modify_fp loc "ext_v" [%here] in
        let ext_loc = PowLoc.singleton (Loc.of_allocsite allocsite) in
        let mem = update mode spec global (eval_lv ~spec pid l mem loc n_num) ext_v mem in
        let mem = update mode spec global ext_loc ext_v mem in

@@ -85,7 +85,9 @@ struct
     = fun hlst loc e n_num x -> List.fold_left (fun v here -> modify_footprints here loc e n_num v) x hlst
 
   let external_value : Allocsite.t -> t = fun allocsite ->
-    (Itv.top, PowLoc.bot, ArrayBlk.extern allocsite, StructBlk.extern (), PowProc.bot, Footprints.bot)
+    let array = ArrayBlk.extern allocsite in
+    (Itv.top, PowLoc.bot, array, StructBlk.bot, PowProc.bot, Footprints.bot)
+  (* (Itv.top, PowLoc.bot, ArrayBlk.extern allocsite, StructBlk.extern (), PowProc.bot, Footprints.bot) *)
 
   let itv_top : t = (Itv.top, PowLoc.bot, ArrayBlk.bot, StructBlk.bot, PowProc.bot, Footprints.bot)
 

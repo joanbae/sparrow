@@ -135,13 +135,13 @@ let nullof : t -> Itv.t
 = fun a ->
   fold (fun _ arr -> Itv.join arr.ArrInfo.null_pos) a Itv.bot
 
-let extern allocsite =
-  if !Options.top_location then top
-  else add allocsite ArrInfo.top empty
+let extern allocsite = add allocsite ArrInfo.top empty
+  (* if !Options.top_location then top
+   * else add allocsite ArrInfo.top empty *)
 
-let input allocsite =
-  if !Options.top_location then top
-  else add allocsite ArrInfo.input empty
+let input allocsite =  add allocsite ArrInfo.input empty
+  (* if !Options.top_location then top
+   * else add allocsite ArrInfo.input empty *)
 
 let weak_plus_size : t -> Itv.t -> t
 = fun arr i ->
