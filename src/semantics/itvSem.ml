@@ -157,7 +157,7 @@ let eval_bop : Spec.t -> Cil.binop -> Val.t -> Val.t -> Cil.location -> e:string
 let rec resolve_offset : Spec.t -> Proc.t -> Val.t -> Cil.offset ->
   Mem.t -> Footprints.t * Cil.location -> exp:string -> n_num:string -> PowLoc.t * Footprints.t
 = fun spec pid v os mem (fp, loc) ~exp ~n_num ->
-  let fp_count = Val.get_fp_count() in
+  let fp_count = Val.increment_fp_count() in
   match os with
   | Cil.NoOffset ->
     let powloc, here =  PowLoc.join (Val.pow_loc_of_val v) (Val.array_of_val v |> ArrayBlk.pow_loc_of_array), [%here] in
@@ -195,11 +195,11 @@ and eval_lv_with_footprint ?(spec=Spec.empty) : Proc.t -> Cil.lval -> Mem.t -> C
         (eval ~spec pid e mem loc n_num, [%here])
     in
     let str_v = Val.without_fp v |> Val.to_string  in
-    let fp = Footprints.of_here here loc exp n_num str_v (Val.get_fp_count ()) in
+    let fp = Footprints.of_here here loc exp n_num str_v (Val.increment_fp_count ()) in
     let powloc, fp = resolve_offset spec pid v (snd lv) mem (fp, loc) exp n_num in
     let powloc, here = PowLoc.remove Loc.null (powloc), [%here] in
     let fp = Footprints.join fp (Val.footprints_of_val v) |>
-             Footprints.join (Footprints.of_here here loc exp n_num str_v (Val.get_fp_count ())) in
+             Footprints.join (Footprints.of_here here loc exp n_num str_v (Val.increment_fp_count ())) in
     (powloc, fp)
 
 and var_of_varinfo vi pid  =
@@ -751,7 +751,7 @@ let run : update_mode -> Spec.t -> Node.t -> Mem.t * Global.t -> Mem.t * Global.
   let n_num = InterCfg.Node.to_string node in
   match InterCfg.cmdof global.icfg node with
   | IntraCfg.Cmd.Cset (l, e, loc) ->
-      (update mode spec global (eval_lv ~spec pid l mem loc n_num) (eval ~spec pid e mem loc n_num) mem, global)
+    (update mode spec global (eval_lv ~spec pid l mem loc n_num) (eval ~spec pid e mem loc n_num) mem, global)
   | IntraCfg.Cmd.Cexternal (l, loc) ->
     (match Cil.typeOfLval l with
        Cil.TInt (_, _) | Cil.TFloat (_, _) ->
@@ -835,5 +835,6 @@ let run : update_mode -> Spec.t -> Node.t -> Mem.t * Global.t -> Mem.t * Global.
   | IntraCfg.Cmd.Cskip -> (mem, global)
   | IntraCfg.Cmd.Casm _ -> (mem, global)    (* Not supported *)
   | _ -> invalid_arg "itvSem.ml: run_cmd"
+
            
 let initial _ = Mem.bot

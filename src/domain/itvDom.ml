@@ -49,24 +49,29 @@ struct
 
   (* value without fp *)
   let without_fp : t -> t = fun v ->
-    (itv_of_val v, pow_loc_of_val v, array_of_val v, struct_of_val v, pow_proc_of_val v, Footprints.empty) 
+    (itv_of_val v, pow_loc_of_val v, array_of_val v, struct_of_val v, pow_proc_of_val v, Footprints.empty)
 
-  let get_fp_count () : string =
+  let modify_fp_only : t -> Footprints.t -> t = fun v fp ->
+     (itv_of_val v, pow_loc_of_val v, array_of_val v, struct_of_val v, pow_proc_of_val v, fp)
+
+  let increment_fp_count () : string =
     let str = string_of_int !fp_count in
     fp_count := !fp_count + 1;
     str
 
+  let get_fp_count () : int = !fp_count -1 
+    
   let modify_footprints : Lexing.position -> Cil.location -> string -> string -> t -> t
     = fun here loc e n_num x ->
       let s_only_v = without_fp x |> to_string in
-      let f = Footprints.add (Footprint.of_here here loc e n_num s_only_v (get_fp_count ())) (footprints_of_val x) in
+      let f = Footprints.add (Footprint.of_here here loc e n_num s_only_v (increment_fp_count ())) (footprints_of_val x) in
       (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f)
 
   (*eval_lv에서 나오는 Footprint를 처리하기 위해서 쓴다.*)
   let modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> string -> string -> t -> t
     = fun here fp loc e n_num x ->
       let s_only_v = without_fp x |> to_string in
-      let f = Footprints.add (Footprint.of_here here loc e n_num s_only_v (get_fp_count ())) (footprints_of_val x) in
+      let f = Footprints.add (Footprint.of_here here loc e n_num s_only_v (increment_fp_count ())) (footprints_of_val x) in
       let f' = Footprints.join fp f in
       (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f')
 
@@ -81,6 +86,7 @@ struct
       let fps = fp_join fps Footprints.empty in
       modify_footprints' here fps loc e n_num x
 
+  (* For multiple [%here]s *)
   let modify_footprints''' : Lexing.position list -> Cil.location -> string -> string -> t -> t
     = fun hlst loc e n_num x -> List.fold_left (fun v here -> modify_footprints here loc e n_num v) x hlst
 

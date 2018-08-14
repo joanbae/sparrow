@@ -94,8 +94,10 @@ let main () =
     |> opt !Options.cfg print_cfg
     |> extract_feature
     |> StepManager.stepf true "Itv Sparse Analysis" ItvAnalysis.do_analysis
-    |> cond !Options.oct octagon_analysis (fun (_,_,_,alarm) -> alarm)
-    |> Report.print
+    |> opt !Options.debug (fun (global,intputof,outputof,alarm) ->
+        let () =  Debug.debug (global,intputof,outputof,alarm) in
+        (global,intputof,outputof,alarm))
+    |> fun (_,_,_,alarm) -> Report.print alarm
     |> finish t0
   with exc ->
     prerr_endline (Printexc.to_string exc);
