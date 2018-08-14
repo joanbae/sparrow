@@ -41,7 +41,7 @@ let nobar = ref false
 let narrow = ref false
 let profile = ref false
 let scaffold = ref true
-let debug = ref false
+let debug_fp = ref false
 
 (* Unsoundness *)
 let unsound_loop = ref BatSet.empty
@@ -112,5 +112,5 @@ let opts =
   ("-marshal_out", (Arg.Set marshal_out), "Write analysis results to marshaled data");
   ("-marshal_dir", (Arg.String (fun s -> marshal_dir := s)), "Directory where the marshaled data exists (default: marshal/)");
   ("-int_overflow", (Arg.Set int_overflow), "Consider integer overflow");
-  ("-debug", (Arg.Set debug), "Do Debug mode");
+  ("-debug_fp", (Arg.Set debug_fp), "Enter Debug mode with Footprint");
   ]
