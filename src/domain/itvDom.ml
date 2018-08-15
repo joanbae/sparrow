@@ -132,7 +132,10 @@ struct
              
   let weak_add k v m =
     match Loc.typ k with
-    | Some t when Cil.isArithmeticType t -> weak_add k (Val.itv_of_val v |> Val.of_itv) m
+    | Some t when Cil.isArithmeticType t ->
+      let v_fp = Val.footprints_of_val v |> Val.of_footprints in
+      let v = Val.modify_itv (Val.itv_of_val v) v_fp in
+      weak_add k v m
     | _ -> weak_add k v m
 
   let lookup : PowLoc.t -> t -> Val.t = fun locs mem ->

@@ -74,7 +74,7 @@ let eval_const : Cil.constant -> Cil.location -> n_num:string -> Val.t = fun cst
 
 let eval_uop : Spec.t -> Cil.unop -> Val.t -> Cil.location -> e:string -> n_num:string -> Val.t
 = fun spec u v loc ~e ~n_num ->
-  if Val.eq v Val.bot then Val.bot else
+  if Val.eq v Val.bot then Val.bot |> Val.modify_footprints [%here] loc e n_num else
     let fp = Val.footprints_of_val v in 
     let itv = Val.itv_of_val v in
     let itv', here =
@@ -158,11 +158,13 @@ let rec resolve_offset : Spec.t -> Proc.t -> Val.t -> Cil.offset ->
   Mem.t -> Footprints.t * Cil.location -> exp:string -> n_num:string -> PowLoc.t * Footprints.t
 = fun spec pid v os mem (fp, loc) ~exp ~n_num ->
   let fp_count = Val.increment_fp_count() in
+  let s_exp = "offset:"^CilHelper.s_offset os^" of "^exp in
+
   match os with
   | Cil.NoOffset ->
     let powloc, here =  PowLoc.join (Val.pow_loc_of_val v) (Val.array_of_val v |> ArrayBlk.pow_loc_of_array), [%here] in
     let str_powloc = Val.of_pow_loc powloc |> Val.to_string in
-    (powloc, FP.join fp (FP.of_here here loc exp n_num str_powloc fp_count))
+    (powloc, FP.join fp (FP.of_here here loc ("NoOffset of"^exp) n_num str_powloc fp_count))
   | Cil.Field (f, os') ->
     let (ploc, arr, str) = (Val.pow_loc_of_val v, Val.array_of_val v, Val.struct_of_val v) in
     let v =
@@ -171,40 +173,38 @@ let rec resolve_offset : Spec.t -> Proc.t -> Val.t -> Cil.offset ->
       let v3 = StructBlk.append_field str f in (* Case3:  S s; s.f *)
       Val.of_pow_loc (PowLoc.join (PowLoc.join v1 v2) v3)
     in
-    let fp = Footprints.join fp (FP.of_here [%here] loc exp n_num (Val.to_string v) fp_count) in
+    let fp = Footprints.join fp (FP.of_here [%here] loc s_exp n_num (Val.to_string v) fp_count) in
     resolve_offset spec pid v os' mem (fp, loc) exp n_num
   | Cil.Index (e, os') ->
     let ploc = Val.pow_loc_of_val v in
     let arr = lookup ploc mem |> Val.array_of_val in
     let _ : ItvDom.Val.t = eval ~spec pid e mem loc n_num in (* NOTE: to sync with access function *)
     let v_ploc = (ArrayBlk.pow_loc_of_array arr |> Val.of_pow_loc) in
-    let fp = Footprints.join fp (FP.of_here [%here] loc exp n_num (Val.to_string v_ploc) fp_count) in
+    let fp = Footprints.join fp (FP.of_here [%here] loc s_exp n_num (Val.to_string v_ploc) fp_count) in
     resolve_offset spec pid v_ploc os' mem (fp, loc) exp n_num
 
 and eval_lv_with_footprint ?(spec=Spec.empty) : Proc.t -> Cil.lval -> Mem.t -> Cil.location -> string -> PowLoc.t * Footprints.t
   = fun pid lv mem loc n_num ->
     let exp = CilHelper.s_exp (Lval lv) in
+    let b_exp = "base:"^CilHelper.s_lhost (fst lv) in
+
     let v, here =
       match fst lv with
       | Cil.Var vi ->
-        let l =  var_of_varinfo vi pid
-                 |> PowLoc.singleton
-                 |> Val.of_pow_loc in
-        (l, [%here])
+        let l, here =  var_of_varinfo vi pid in
+        let ploc = l |> PowLoc.singleton |> Val.of_pow_loc in
+        (ploc, here)
       | Cil.Mem e ->
         (eval ~spec pid e mem loc n_num, [%here])
     in
     let str_v = Val.without_fp v |> Val.to_string  in
-    let fp = Footprints.of_here here loc exp n_num str_v (Val.increment_fp_count ()) in
+    let fp = Footprints.of_here here loc b_exp n_num str_v (Val.increment_fp_count ()) in
     let powloc, fp = resolve_offset spec pid v (snd lv) mem (fp, loc) exp n_num in
-    let powloc, here = PowLoc.remove Loc.null (powloc), [%here] in
-    let fp = Footprints.join fp (Val.footprints_of_val v) |>
-             Footprints.join (Footprints.of_here here loc exp n_num str_v (Val.increment_fp_count ())) in
-    (powloc, fp)
+    (PowLoc.remove Loc.null (powloc), fp)
 
-and var_of_varinfo vi pid  =
-  if vi.Cil.vglob then Loc.of_gvar vi.Cil.vname vi.Cil.vtype
-  else Loc.of_lvar pid vi.Cil.vname vi.Cil.vtype
+and var_of_varinfo vi pid =
+    if vi.Cil.vglob then Loc.of_gvar vi.Cil.vname vi.Cil.vtype, [%here]
+    else Loc.of_lvar pid vi.Cil.vname vi.Cil.vtype, [%here]
 
 and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> string -> Val.t
   = fun pid e mem loc n_num ->
@@ -232,12 +232,11 @@ and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> stri
     (* TODO: type information is required for precise semantics of AlignOfE.  *)
     | Cil.AlignOfE _ -> Val.modify_footprints [%here] loc s_exp n_num (Val.of_itv Itv.top)
     | Cil.UnOp (u, e, _) ->
-      let v, here= (eval_uop spec u (eval ~spec pid e mem loc n_num) loc s_exp n_num), [%here] in
-      Val.modify_footprints here loc s_exp n_num v
+      eval_uop spec u (eval ~spec pid e mem loc n_num) loc s_exp n_num
     | Cil.BinOp (b, e1, e2, _) ->
       let v1 = eval ~spec pid e1 mem loc n_num in
       let v2 = eval ~spec pid e2 mem loc n_num in
-      Val.modify_footprints [%here] loc s_exp n_num (eval_bop spec b v1 v2 loc s_exp n_num) 
+      eval_bop spec b v1 v2 loc s_exp n_num
     | Cil.Question (e1, e2, e3, _) ->
       let i1 = Val.itv_of_val (eval ~spec pid e1 mem loc n_num) in
       if Itv.is_bot i1 then
@@ -251,9 +250,7 @@ and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> stri
         Val.modify_footprints here loc s_exp n_num v
     | Cil.CastE (t, e) ->
       let v = eval ~spec pid e mem loc n_num in
-      let fp_v = Val.footprints_of_val v in
-      (try Val.modify_footprints' [%here] fp_v loc s_exp n_num (Val.cast (Cil.typeOf e) t v (loc, e) n_num) 
-       with _ -> Val.modify_footprints [%here] loc s_exp n_num v)
+      (try Val.cast (Cil.typeOf e) t v (loc, e) n_num with _ -> Val.modify_footprints [%here] loc s_exp n_num v)
     | Cil.AddrOf l ->
       let powloc, fp = eval_lv_with_footprint ~spec pid l mem loc n_num in
       Val.modify_footprints' [%here] fp loc s_exp n_num (Val.of_pow_loc powloc)
@@ -555,76 +552,89 @@ let sparrow_opt mode spec pid exps (mem,global) loc n_num =
 
 let model_unknown mode spec node pid lvo f exps (mem, global) loc =
   let n_num = InterCfg.Node.to_string node in
+  let modify_fp here v = Val.modify_footprints here loc (f.vname^"(...)") n_num v in
+  
   match lvo with
     None -> (mem, global)
   | Some lv when Cil.isArithmeticType (Cil.unrollTypeDeep (Cil.typeOfLval lv)) ->
       let ext_v = if CilHelper.is_unsigned (Cil.unrollTypeDeep (Cil.typeOfLval lv)) then
-                    Val.of_itv Itv.nat
-                  else Val.of_itv Itv.top
+                    Val.of_itv Itv.nat |> modify_fp [%here]
+                  else Val.of_itv Itv.top |> modify_fp [%here]
       in
       let lv = eval_lv ~spec pid lv mem loc n_num in
       let mem = update mode spec global lv ext_v mem in
       (mem,global)
   | Some lv ->
       let allocsite = Allocsite.allocsite_of_ext (Some f.vname) in
-      let ext_v = ArrayBlk.extern allocsite |> ArrayBlk.cast_array (Cil.typeOfLval lv) |> Val.of_array in
+      let ext_v = ArrayBlk.extern allocsite |> ArrayBlk.cast_array (Cil.typeOfLval lv) |>
+                  Val.of_array |> modify_fp [%here] in
       let ext_loc = PowLoc.singleton (Loc.of_allocsite allocsite) in
       let lv = eval_lv ~spec pid lv mem loc n_num in
       let mem = update mode spec global lv ext_v mem in
-      let mem = update mode spec global ext_loc Val.itv_top mem in
+      let mem = update mode spec global ext_loc (Val.itv_top |> modify_fp [%here]) mem in
       (mem,global)
 
 let model_memcpy mode spec pid (lvo, exps) (mem, global) loc n_num =
+  let modify_fp here s_exp v = Val.modify_footprints here loc s_exp n_num v in
   match (lvo, exps) with
     Some lv, dst::src::_ ->
-      let (src_v, dst_v) = tuple mem |> Tuple2.map (fun mem -> eval ~spec pid src mem loc n_num) (fun mem -> eval ~spec pid dst mem loc n_num) in
+    let (src_v, dst_v) = tuple mem |> Tuple2.map (fun mem -> eval ~spec pid src mem loc n_num) (fun mem -> eval ~spec pid dst mem loc n_num)
+                         |> Tuple2.map (modify_fp [%here] (CilHelper.s_exp src)) (modify_fp [%here] (CilHelper.s_exp dst))
+    in
       let (src_l, dst_l) = (src_v, dst_v) |> Tuple2.mapn Val.array_of_val
                            |> Tuple2.mapn ArrayBlk.pow_loc_of_array in
       let lv = eval_lv ~spec pid lv mem loc n_num in
       mem
-      |> update mode spec global dst_l (lookup src_l mem)
+      |> update mode spec global dst_l (lookup src_l mem |> modify_fp [%here] (CilHelper.s_exp src))
       |> update mode spec global lv dst_v
       |> (fun mem -> (mem, global))
   | _, _ -> (mem, global)
 
 let model_getpwent mode spec node pid lvo f (mem,global) loc =
   let n_num = InterCfg.Node.to_string node in
+  let modify_fp here s_exp v = Val.modify_footprints here loc s_exp n_num v in
   match lvo, f.vtype with
     Some lv, Cil.TFun ((Cil.TPtr ((Cil.TComp (comp, _) as elem_t), _) as ptr_t), _, _, _) ->
       let struct_loc = eval_lv ~spec pid lv mem loc n_num in
       let struct_v = eval_array_alloc ~spec node (Cil.SizeOf elem_t) false mem loc n_num |>
-                     fun v -> Val.cast ptr_t (Cil.typeOfLval lv) v (loc, (Cil.Const (Cil.CStr "temp"))) n_num in
+                     fun v -> Val.cast ptr_t (Cil.typeOfLval lv) v (loc, (Cil.Const (Cil.CStr "struct passwd"))) n_num |>
+                              modify_fp [%here] "struct passwd"
+      in
       let field_loc = ArrayBlk.append_field (Val.array_of_val struct_v) (List.find (fun f -> f.fname ="pw_name") comp.cfields) in
       let allocsite = Allocsite.allocsite_of_ext (Some "getpwent.pw_name") in
-      let ext_v = ArrayBlk.input allocsite |> Val.of_array in
+      let ext_v = ArrayBlk.input allocsite |> Val.of_array |> modify_fp [%here] "pw_name" in
       let ext_loc = PowLoc.singleton (Loc.of_allocsite allocsite) in
       let mem = update mode spec global struct_loc struct_v mem
               |> update mode spec global field_loc ext_v
-              |> update mode spec global ext_loc Val.itv_top in
+              |> update mode spec global ext_loc (Val.itv_top |> modify_fp [%here] "pw_name") in
       (mem, global)
   | _ -> (mem, global)
 
 let rec model_strcpy mode spec node pid es (mem, global) loc =
   let n_num = InterCfg.Node.to_string node in
+  let s_exp = "strcpy("^(List.fold_left (fun acc e -> acc ^ CilHelper.s_exp e ^ ",") "" es )^")"in
+  
   match es with
     (CastE (_, e))::t -> model_strcpy mode spec node pid (e::t) (mem,global) loc
   | dst::(CastE(_, e))::[] -> model_strcpy mode spec node pid (dst::e::[]) (mem,global) loc
   | (Lval dst)::(Lval src)::[] | (StartOf dst)::(StartOf src)::[]
   | (Lval dst)::(StartOf src)::[] | (StartOf dst)::(Lval src)::[] ->
-      let s_exp = (CilHelper.s_exp (List.hd es))^", "^(CilHelper.s_exp (List.nth es 1)) in
-      let src_v = lookup (eval_lv ~spec pid src mem loc n_num) mem in
-      let src_arr, src_fp  = Val.array_of_val src_v, Val.footprints_of_val src_v in
-      let dst_v = lookup (eval_lv ~spec pid dst mem loc n_num) mem in
-      let dst_arr, dst_fp = Val.array_of_val dst_v, Val.footprints_of_val dst_v in
-      let np = ArrayBlk.nullof src_arr in
-      let newv, here = Val.of_array (ArrayBlk.set_null_pos dst_arr np), [%here] in
-      let newv = Val.modify_footprints'' here (src_fp :: dst_fp :: []) loc s_exp n_num newv in
-      let mem = mem |> update mode spec global (eval_lv ~spec pid dst mem loc n_num) newv in
-      (mem, global)
+    let src_v = lookup (eval_lv ~spec pid src mem loc n_num) mem in
+    let src_arr, src_fp  = Val.array_of_val src_v, Val.footprints_of_val src_v in
+    let dst_v = lookup (eval_lv ~spec pid dst mem loc n_num) mem in
+    let dst_arr, dst_fp = Val.array_of_val dst_v, Val.footprints_of_val dst_v in
+    let np = ArrayBlk.nullof src_arr in
+    let newv, here = Val.of_array (ArrayBlk.set_null_pos dst_arr np), [%here] in
+    let newv = Val.modify_footprints'' here (src_fp :: dst_fp :: []) loc s_exp n_num newv in
+    let mem = mem |> update mode spec global (eval_lv ~spec pid dst mem loc n_num) newv in
+    (mem, global)
   | _ -> (mem, global)
 
 let rec model_strncpy mode spec node pid es (mem, global) loc =
   let n_num = InterCfg.Node.to_string node in
+  let s_exp = "strncpy("^(CilHelper.s_exp (List.hd es))^",_,"^(CilHelper.s_exp (List.nth es 2))^")" in
+  let modify_fp here v = Val.modify_footprints here loc s_exp n_num v in
+  
   match es with
     CastE (_, e)::t -> model_strncpy mode spec node pid (e::t) (mem, global) loc
   | (Lval dst)::_::size::_
@@ -632,13 +642,16 @@ let rec model_strncpy mode spec node pid es (mem, global) loc =
       let arr = Val.array_of_val (lookup (eval_lv ~spec pid dst mem loc n_num) mem) in
       let sz = Val.itv_of_val (eval ~spec pid size mem loc n_num) in
       let np = Itv.join Itv.zero (Itv.minus sz Itv.one)in
-      let newv = Val.of_array (ArrayBlk.set_null_pos arr np) in
+      let newv = Val.of_array (ArrayBlk.set_null_pos arr np) |> modify_fp [%here] in
       let mem = mem |> update mode spec global (eval_lv ~spec pid dst mem loc n_num) newv in
       (mem, global)
   | _ -> (mem,global)
 
 let rec model_strcat mode spec node pid es (mem, global) loc =
   let n_num = InterCfg.Node.to_string node in
+  let s_exp = "strcat("^(List.fold_left (fun acc e -> acc ^ CilHelper.s_exp e ^ ",") "" es )^")" in
+  let modify_fp here v = Val.modify_footprints here loc s_exp n_num v in
+
   match es with
     (CastE (_, e))::t -> model_strcat mode spec node pid (e::t) (mem,global) loc
   | dst::(CastE(_, e))::[] -> model_strcat mode spec node pid (dst::e::[]) (mem,global) loc
@@ -647,37 +660,44 @@ let rec model_strcat mode spec node pid es (mem, global) loc =
       let src_arr = Val.array_of_val (lookup (eval_lv ~spec pid src mem loc n_num) mem) in
       let dst_arr = Val.array_of_val (lookup (eval_lv ~spec pid dst mem loc n_num) mem) in
       let np = ArrayBlk.nullof src_arr in
-      let newv = Val.of_array (ArrayBlk.plus_null_pos dst_arr np) in
+      let newv = Val.of_array (ArrayBlk.plus_null_pos dst_arr np) |> modify_fp [%here] in
       let mem = mem |> update mode spec global (eval_lv ~spec pid dst mem loc n_num) newv in
       (mem, global)
   | _ -> (mem, global)
 
 let rec model_strchr mode spec node pid (lvo, exps) (mem, global) loc =
   let n_num = InterCfg.Node.to_string node in
+  let s_exp = "strchr("^(List.fold_left (fun acc e -> acc ^ CilHelper.s_exp e ^ ",") "" exps )^")"in
+  let modify_fp here v = Val.modify_footprints here loc s_exp n_num v in
+  
   match lvo, exps with
     Some _, (CastE (_, e))::t -> model_strchr mode spec node pid (lvo, e::t) (mem,global) loc
   | Some lv, (Lval str)::_ | Some lv, (StartOf str)::_ ->
       let str_arr = Val.array_of_val (lookup (eval_lv ~spec pid str mem loc n_num) mem) in
       let np = ArrayBlk.nullof str_arr in
-      let newv = Val.of_array (ArrayBlk.plus_offset str_arr np) in
+      let newv = Val.of_array (ArrayBlk.plus_offset str_arr np) |> modify_fp [%here] in
       let mem = mem |> update mode spec global (eval_lv ~spec pid lv mem loc n_num) newv in
       (mem, global)
   | _, _ -> (mem, global)
 
 let sparrow_array_init mode spec node pid exps (mem, global) loc =
   let n_num = InterCfg.Node.to_string node in
+  let s_exp = "sp_arr_init("^CilHelper.s_exp (List.nth exps 0)^","^CilHelper.s_exp (List.nth exps 1)^")" in
+  let modify_fp here v = Val.modify_footprints here loc s_exp n_num v in
   match List.nth exps 0, List.nth exps 1 with
   | arr, Cil.Const (Cil.CInt64 (_, _, _)) ->
       let lv = eval ~spec pid arr mem loc n_num |> Val.array_of_val |> ArrayBlk.pow_loc_of_array in
-      let v = List.fold_left (fun v e -> Val.join (eval ~spec pid e mem loc n_num) v) Val.bot (List.tl exps) in
+      let v = List.fold_left (fun v e -> Val.join (eval ~spec pid e mem loc n_num) v) Val.bot (List.tl exps)
+              |> modify_fp [%here] in
       (update mode spec global lv v mem, global)
   | arr, Cil.Const (Cil.CStr s) ->
       let lv = eval ~spec pid arr mem loc n_num |> Val.array_of_val |> ArrayBlk.pow_loc_of_array in
       let v = List.fold_left (fun v e ->
           match e with
             Cil.Const (Cil.CStr s) ->
-              Val.join (eval_string_alloc node s mem loc n_num) v
+            Val.join (eval_string_alloc node s mem loc n_num) v
           | _ -> v) Val.bot (List.tl exps)
+          |> modify_fp [%here]
       in
       (update mode spec global lv v mem, global)
   | arr, _ ->
@@ -686,7 +706,7 @@ let sparrow_array_init mode spec node pid exps (mem, global) loc =
       | Cil.Lval l -> eval_lv ~spec pid l mem loc n_num
       | _ -> raise (Failure "Error: not Lval ")
     in
-    let s_exp = "sp_arr_init("^CilHelper.s_exp arr^")" in
+    let s_exp = "sp_arr_init("^CilHelper.s_exp arr^",_)" in
     let v = Val.modify_footprints [%here] loc s_exp n_num (eval ~spec pid arr mem loc n_num) in
     (update mode spec global (getLval arr) v mem, global)
 
