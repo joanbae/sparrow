@@ -54,6 +54,7 @@ module PowLoc : sig
   val null : t
   val prune : Cil.binop -> t -> Cil.exp -> t
   val append_field : t -> Cil.fieldinfo -> t
+  val priority : t -> int
 end with type t = PowDom.MakeCPO(Loc).t and type elt = Loc.t
 
 module Dump : MapDom.CPO with type A.t = Proc.t and type B.t = PowLoc.t

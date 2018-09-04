@@ -7,7 +7,7 @@ module Table = Analysis.Table
 
 let max_count = ref 0
 
-let remove_extra_fps fp = Footprints.filter (fun fp -> if int_of_string (fp.order) < !max_count  then true else false) fp
+let remove_extra_fps fp = Footprints.filter (fun fp -> if fp.order < !max_count  then true else false) fp
 
 let remove_extra_fps' v =
   let v_only = Val.without_fp v in

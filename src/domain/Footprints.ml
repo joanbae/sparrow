@@ -6,6 +6,7 @@ type elt = Footprint.t
 type t = BatSet.t
 
 let compare = BatSet.compare
+let pop = BatSet.pop
 
 let to_string : t -> string = fun x ->
   if BatSet.is_empty x then "bot" else
@@ -88,10 +89,9 @@ let rec list_pp fmt = function
     list_pp fmt tl
 
 let sort fp =
-  let compare_footprints fp1 fp2 =
-    int_of_string fp2.Footprint.order - int_of_string fp1.Footprint.order
-  in
-  List.sort compare_footprints fp
+  let cmp_fps_by_order fp1 fp2 = fp2.Footprint.order - fp1.Footprint.order in
+  let cmp_fps_by_priority fp1 fp2 = fp2.Footprint.priority - fp1.Footprint.priority in
+  List.sort cmp_fps_by_order fp |> List.sort cmp_fps_by_priority
 
 let pp fmt x =
   if is_empty x then Format.fprintf fmt "bot" else
@@ -99,7 +99,19 @@ let pp fmt x =
       list_pp fmt (sort (elements x));
       Format.fprintf fmt "@] }" )
 
-let of_here here src_location exp n_num value order = singleton (Footprint.of_here here src_location exp n_num value order)
+let of_here here src_location exp n_num value order priority = singleton (Footprint.of_here here src_location exp n_num value order priority)
 
-let make file line src_location exp n_num value order = add { Footprint.file = file; line; src_location; exp; n_num; value; order} empty
+let make file line src_location exp n_num value order priority = add { Footprint.file = file; line; src_location; exp; n_num; value; order; priority} empty
 
+let modify_priority fps p =
+  let max (fp1:elt) (fp2:elt) = if fp1.order > fp2.order then fp1 else fp2 in
+  let rec iter max_fp fps =
+    if is_empty fps then max_fp
+    else
+      let ran_fp, fps' = pop fps in
+      iter (max max_fp ran_fp) fps'
+  in
+  if is_empty fps then fps else
+    let max_fp = iter (choose fps) fps in
+    let new_fp = { max_fp with priority = p} in
+    add new_fp (remove max_fp fps)

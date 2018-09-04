@@ -496,3 +496,11 @@ let prune : Cil.binop -> t -> t -> t = fun op x y ->
       | Cil.Ne, V _, V _ -> x
       | _ -> invalid_arg "itv.ml:prune" in
     normalize pruned
+
+let priority ?(widen=false) itv =
+  match itv with
+  | V(MInf, PInf) -> 3
+  | V(MInf, MInf) | V(PInf, PInf) | V(MInf, _) | V(_, PInf) -> 2
+  | V(Int lb, Int ub) when widen -> 1
+  | _ -> 0
+

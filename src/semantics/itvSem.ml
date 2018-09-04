@@ -47,9 +47,14 @@ let lookup : PowLoc.t -> Mem.t -> Val.t
   Mem.lookup locs mem
 
 let update : update_mode -> Spec.t -> Global.t -> PowLoc.t -> Val.t -> Mem.t -> Mem.t
-= fun mode spec global locs v mem ->
-  if can_strong_update mode spec global locs then Mem.strong_update locs v mem
-  else Mem.weak_update locs v mem
+  = fun mode spec global locs v mem ->
+    let check_v = (** Check if it first-time initialized **)
+      if (lookup locs mem) = Val.bot then
+        if v = Val.bot then v
+        else Val.modify_priority v 30 (** First Assignment Cost**)
+      else v in
+    if can_strong_update mode spec global locs then Mem.strong_update locs check_v mem
+    else Mem.weak_update locs check_v mem
 
 (* ********************************** *
  * Semantic functions for expressions *
@@ -59,8 +64,8 @@ let eval_const : Cil.constant -> Cil.location -> n_num:string -> Val.t = fun cst
   let exp = CilHelper.s_exp (Const cst) in
   match cst with
   | Cil.CInt64 (i64, _, _) ->
-    let itv = try Itv.of_int (Cil.i64_to_int i64) with _ -> Itv.top in
-    Val.modify_footprints [%here] loc exp n_num (Val.of_itv itv) 
+    let itv, here = try Itv.of_int (Cil.i64_to_int i64), [%here] with _ -> Itv.top, [%here] in
+    Val.modify_footprints here loc exp n_num (Val.of_itv itv) 
   | Cil.CStr s -> Val.modify_footprints [%here] loc exp n_num (Val.of_itv Itv.top)
   | Cil.CWStr s -> Val.modify_footprints [%here] loc exp n_num (Val.of_itv Itv.top)
   | Cil.CChr c -> Val.modify_footprints [%here] loc exp n_num (Val.of_itv (Itv.of_int (int_of_char c)))
@@ -164,7 +169,8 @@ let rec resolve_offset : Spec.t -> Proc.t -> Val.t -> Cil.offset ->
   | Cil.NoOffset ->
     let powloc, here =  PowLoc.join (Val.pow_loc_of_val v) (Val.array_of_val v |> ArrayBlk.pow_loc_of_array), [%here] in
     let str_powloc = Val.of_pow_loc powloc |> Val.to_string in
-    (powloc, FP.join fp (FP.of_here here loc ("NoOffset of"^exp) n_num str_powloc fp_count))
+    let priority = Val.priority (Val.of_pow_loc powloc) in
+    (powloc, FP.join fp (FP.of_here here loc ("NoOffset of"^exp) n_num str_powloc fp_count priority))
   | Cil.Field (f, os') ->
     let (ploc, arr, str) = (Val.pow_loc_of_val v, Val.array_of_val v, Val.struct_of_val v) in
     let v =
@@ -173,14 +179,16 @@ let rec resolve_offset : Spec.t -> Proc.t -> Val.t -> Cil.offset ->
       let v3 = StructBlk.append_field str f in (* Case3:  S s; s.f *)
       Val.of_pow_loc (PowLoc.join (PowLoc.join v1 v2) v3)
     in
-    let fp = Footprints.join fp (FP.of_here [%here] loc s_exp n_num (Val.to_string v) fp_count) in
+    let priority = Val.priority v in
+    let fp = Footprints.join fp (FP.of_here [%here] loc s_exp n_num (Val.to_string v) fp_count priority) in
     resolve_offset spec pid v os' mem (fp, loc) exp n_num
   | Cil.Index (e, os') ->
     let ploc = Val.pow_loc_of_val v in
     let arr = lookup ploc mem |> Val.array_of_val in
     let _ : ItvDom.Val.t = eval ~spec pid e mem loc n_num in (* NOTE: to sync with access function *)
     let v_ploc = (ArrayBlk.pow_loc_of_array arr |> Val.of_pow_loc) in
-    let fp = Footprints.join fp (FP.of_here [%here] loc s_exp n_num (Val.to_string v_ploc) fp_count) in
+    let priority = Val.priority v in
+    let fp = Footprints.join fp (FP.of_here [%here] loc s_exp n_num (Val.to_string v_ploc) fp_count priority) in
     resolve_offset spec pid v_ploc os' mem (fp, loc) exp n_num
 
 and eval_lv_with_footprint ?(spec=Spec.empty) : Proc.t -> Cil.lval -> Mem.t -> Cil.location -> string -> PowLoc.t * Footprints.t
@@ -198,7 +206,8 @@ and eval_lv_with_footprint ?(spec=Spec.empty) : Proc.t -> Cil.lval -> Mem.t -> C
         (eval ~spec pid e mem loc n_num, [%here])
     in
     let str_v = Val.without_fp v |> Val.to_string  in
-    let fp = Footprints.of_here here loc b_exp n_num str_v (Val.increment_fp_count ()) in
+    let priority = if v = Val.bot then 4 else 0 in
+    let fp = Footprints.of_here here loc b_exp n_num str_v (Val.increment_fp_count ()) priority in
     let powloc, fp = resolve_offset spec pid v (snd lv) mem (fp, loc) exp n_num in
     (PowLoc.remove Loc.null (powloc), fp)
 
@@ -210,7 +219,7 @@ and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> stri
   = fun pid e mem loc n_num ->
     let s_exp = CilHelper.s_exp e in
     match e with
-    | Cil.Const c -> Val.modify_footprints [%here] loc s_exp n_num (eval_const c loc n_num) 
+    | Cil.Const c -> eval_const c loc n_num
     | Cil.Lval l -> 
       let powloc, fp = eval_lv_with_footprint ~spec pid l mem loc n_num in
       let v, here = lookup powloc mem, [%here] in
@@ -384,7 +393,7 @@ let model_alloc_one mode spec pid lvo f (mem, global) loc n_num =
     let arr_val = Val.modify_footprints here loc s_exp n_num arr_val in
     let ext_loc = PowLoc.singleton (Loc.of_allocsite allocsite) in
     let ext_val, here = Val.itv_top, [%here] in
-    let ext_val = Val.modify_footprints here loc s_exp (Val.to_string ext_val) ext_val in
+    let ext_val = Val.modify_footprints here loc s_exp n_num ext_val in
     let mem = update mode spec global (eval_lv ~spec pid lv mem loc n_num) arr_val mem in
     let mem = update mode spec global ext_loc ext_val mem in
     (mem,global)
@@ -625,7 +634,7 @@ let rec model_strcpy mode spec node pid es (mem, global) loc =
     let dst_arr, dst_fp = Val.array_of_val dst_v, Val.footprints_of_val dst_v in
     let np = ArrayBlk.nullof src_arr in
     let newv, here = Val.of_array (ArrayBlk.set_null_pos dst_arr np), [%here] in
-    let newv = Val.modify_footprints'' here (src_fp :: dst_fp :: []) loc s_exp n_num newv in
+    let newv = Val.modify_footprints'' here (src_fp :: dst_fp :: []) ~isPointer:true loc s_exp n_num newv in
     let mem = mem |> update mode spec global (eval_lv ~spec pid dst mem loc n_num) newv in
     (mem, global)
   | _ -> (mem, global)

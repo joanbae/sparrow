@@ -18,7 +18,8 @@ module Integer : sig
   val eq : t -> t -> bool
 end
 
-include AbsDom.LAT
+type t = V of Integer.t * Integer.t | Bot 
+include AbsDom.LAT with type t := t
 
 val is_bot      : t -> bool
 val is_const    : t -> bool
@@ -81,3 +82,5 @@ val cast : Cil.typ -> Cil.typ -> t -> t
 (** {2 Pruning } *)
 
 val prune : Cil.binop -> t -> t -> t
+
+val priority: ?widen: bool -> t -> int

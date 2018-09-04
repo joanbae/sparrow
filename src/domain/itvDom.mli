@@ -31,15 +31,17 @@ module Val : sig
   val modify_arr : ArrayBlk.t -> t -> t
   val without_fp : t -> t
   val modify_fp_only : t -> Footprints.t -> t
-  val increment_fp_count : unit -> string
+  val increment_fp_count : unit -> int
   val get_fp_count : unit -> int
-  val modify_footprints : Lexing.position -> Cil.location -> string -> string -> t -> t
-  val modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> string -> string -> t -> t
-  val modify_footprints'' : Lexing.position -> Footprints.t list -> Cil.location -> string -> string -> t -> t
-  val modify_footprints''' : Lexing.position list -> Cil.location -> string -> string -> t -> t
+  val modify_footprints : Lexing.position -> Cil.location -> string -> string -> ?isPointer:bool -> ?widen:bool -> t -> t
+  val modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> string -> string -> ?isPointer:bool -> ?widen:bool -> t -> t
+  val modify_footprints'' : Lexing.position -> Footprints.t list -> ?isPointer:bool-> Cil.location -> string -> string -> t -> t
+  val modify_footprints''' : (Lexing.position * bool) list -> Cil.location -> string -> string -> t -> t
   val external_value : BasicDom.Allocsite.t -> t
   val itv_top : t
   val cast : Cil.typ -> Cil.typ -> t -> Cil.location * Cil.exp -> string -> t
+  val priority : ?isPointer:bool -> ?widen:bool -> t -> int
+  val modify_priority : t -> int -> t
 end
 
 module Mem : sig
