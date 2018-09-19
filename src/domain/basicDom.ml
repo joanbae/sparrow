@@ -167,8 +167,7 @@ struct
       else add (Loc.append_field l f.Cil.fname f.Cil.ftype) acc
     in
     fold add_appended ls bot
-
-  let priority x = if x = empty then 5 else 0 
+  let priority x = if x = empty then 4 else 0
 end
 
 module Dump = MapDom.MakeCPO (Proc) (PowLoc)

@@ -84,3 +84,4 @@ val cast : Cil.typ -> Cil.typ -> t -> t
 val prune : Cil.binop -> t -> t -> t
 
 val priority: ?widen: bool -> t -> int
+val pp : Format.formatter -> t -> unit

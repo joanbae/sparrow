@@ -94,7 +94,7 @@ let main () =
     |> opt !Options.cfg print_cfg
     |> extract_feature
     |> StepManager.stepf true "Itv Sparse Analysis" ItvAnalysis.do_analysis
-    |> opt !Options.debug_fp (fun (global,intputof,outputof,alarm) ->
+    |> opt !Options.opt_debug_fp (fun (global,intputof,outputof,alarm) ->
         let () =  Debug.debug (global,intputof,outputof,alarm) in
         (global,intputof,outputof,alarm))
     |> fun (_,_,_,alarm) -> Report.print alarm

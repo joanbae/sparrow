@@ -47,6 +47,7 @@ module Loc : sig
   val is_local_of : Proc.t -> t -> bool
   val get_proc : t -> Proc.t
   val typ : t -> Cil.typ option
+  val pp : Format.formatter -> t -> unit
 end
 
 module PowLoc : sig

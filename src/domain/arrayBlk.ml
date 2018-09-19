@@ -144,7 +144,6 @@ struct
       | _ -> 0
     in
     p_os + p_sz + p_str + p_npos
-    
 end
 
 include MapDom.MakeLAT (Allocsite) (ArrInfo)
@@ -229,4 +228,3 @@ let to_string : t -> string = fun x ->
 
 let priority ?(isPointer=false) x =
   ArrInfo.priority isPointer (offsetof x) (sizeof x) (strideof x) (nullof x)
-  

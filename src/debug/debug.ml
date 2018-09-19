@@ -2,12 +2,11 @@ open Vocab
 open ItvDom
 
 module DM = Debugmode
-module Analysis = SparseAnalysis.Make(ItvSem)
-module Table = Analysis.Table
-
+module Table = ItvDom.Table
 let max_count = ref 0
 
-let remove_extra_fps fp = Footprints.filter (fun fp -> if fp.order < !max_count  then true else false) fp
+let remove_extra_fps fp =
+  Footprints.filter (fun fp -> fp.order < !max_count) fp
 
 let remove_extra_fps' v =
   let v_only = Val.without_fp v in
@@ -15,14 +14,17 @@ let remove_extra_fps' v =
 
 let add_lv pid lv mem loc n_num =
   let (powloc, fp) = ItvSem.eval_lv_with_footprint pid lv mem loc n_num in
-  let lv = ItvDom.Mem.lookup powloc mem in
-
+  let v = ItvDom.Mem.lookup powloc mem in
   DM.long (fun () ->
+      if v = Val.bot then
+        let () = Format.fprintf Format.err_formatter "%s" "Value is bot and its ploc was computed in the following way" in
+        Format.fprintf Format.err_formatter "@\n=======@\n";
+        Footprints.pp Format.err_formatter fp
+      else
       (* BasicDom.PowLoc.pp Format.err_formatter powloc;
        * Format.fprintf Format.err_formatter "@\n=======@\n";
        * Footprints.pp Format.err_formatter fp *)
-      ItvDom.Val.pp Format.err_formatter lv;)
-
+        ItvDom.Val.pp Format.err_formatter v;)
 
 let add_exp pid e mem loc n_num =
   let v = remove_extra_fps' (ItvSem.eval pid e mem loc n_num) in
@@ -66,6 +68,6 @@ let queries (g, i, o, a) = list_fold (add_query i) a DM.empty |> DM.final
 
 let debug : Global.t * Table.t * Table.t * Report.query list -> unit
   = fun (g, i, o, a) ->
-    max_count := Val.get_fp_count ();
+    max_count := ItvDom.Val.get_fp_count ();
     DM.run (queries (g, i, o, a))
 

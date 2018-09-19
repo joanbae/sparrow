@@ -74,3 +74,4 @@ val marshal_dir : string ref
 (** {2 Options lists } *)
 
 val opts : (string * Arg.spec * string) list
+val opt_debug_fp : bool ref

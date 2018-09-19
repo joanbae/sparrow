@@ -73,6 +73,7 @@ let oct_debug = ref false
 let print_premem = ref false
 let verbose = ref 1
 let int_overflow = ref false
+let opt_debug_fp = ref false
 
 let opts =
   [
@@ -112,5 +113,5 @@ let opts =
   ("-marshal_out", (Arg.Set marshal_out), "Write analysis results to marshaled data");
   ("-marshal_dir", (Arg.String (fun s -> marshal_dir := s)), "Directory where the marshaled data exists (default: marshal/)");
   ("-int_overflow", (Arg.Set int_overflow), "Consider integer overflow");
-  ("-debug_fp", (Arg.Set debug_fp), "Enter Debug mode with Footprint");
+  ("-debug_fp", (Arg.Set opt_debug_fp), "Enter Debug mode with Footprint"); 
   ]
