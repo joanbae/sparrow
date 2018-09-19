@@ -40,3 +40,4 @@ val cast_array : Cil.typ -> t -> t
 val allocsites_of_array : t -> BasicDom.Allocsite.t BatSet.t
 val pow_loc_of_array : t -> BasicDom.PowLoc.t
 val append_field : t -> Cil.fieldinfo -> BasicDom.PowLoc.t
+val priority : ?isPointer : bool -> t -> int
