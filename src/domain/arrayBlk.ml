@@ -115,6 +115,35 @@ struct
   let pp fmt arr =
     Format.fprintf fmt "@[<hov 2>( %a, %a, %a, %a, %a )@]" Itv.pp arr.offset
       Itv.pp arr.size Itv.pp arr.stride Itv.pp arr.null_pos PowStruct.pp arr.structure
+
+  let priority isPointer offset size stride null_pos =
+    let p_os  = match offset with
+      | Itv.V(Itv.Integer.MInf, Itv.Integer.PInf) -> 3
+      | Itv.V(Itv.Integer.MInf, _) -> 2
+      | Itv.V(Int lb, _) when lb < 0 -> 2 
+      | Itv.V(_, Itv.Integer.PInf) -> 1
+      | _ -> 0 in
+    let p_sz = match size with
+      | Itv.V(Int 0, _) | Itv.V(_, Int 0)-> 4
+      | Itv.V(Int lb, Int ub) when isPointer && (lb!=1 || ub !=1) -> 4
+      | Itv.V(Itv.Integer.MInf, Itv.Integer.PInf)-> 3
+      | Itv.V(Itv.Integer.MInf, _) -> 2
+      | Itv.V(Int lb, _) when lb < 0 -> 2
+      | Itv.V(_, Itv.Integer.PInf) -> 1
+      | _ -> 0 in 
+    let p_str = match stride with
+      | Itv.V(Int lb, _) when lb <= 0 -> 5
+      | Itv.Bot | Itv.V(Itv.Integer.MInf, _ ) -> 5
+      | _ -> 0 in
+    let p_npos = match null_pos with
+      | Itv.Bot -> 4
+      | Itv.V(Itv.Integer.MInf, Itv.Integer.PInf) -> 3
+      | Itv.V(Itv.Integer.MInf, _) -> 2
+      | Itv.V(Int lb, _) when lb < 0 -> 2
+      | Itv.V(_, Itv.Integer.PInf) -> 1
+      | _ -> 0
+    in
+    p_os + p_sz + p_str + p_npos
 end
 
 include MapDom.MakeLAT (Allocsite) (ArrInfo)
@@ -138,6 +167,10 @@ let nullof : t -> Itv.t
 let extern allocsite =
   if !Options.top_location then top
   else add allocsite ArrInfo.top empty
+
+let strideof : t -> Itv.t
+= fun a ->
+  fold (fun _ arr -> Itv.join arr.ArrInfo.stride) a Itv.bot
 
 let input allocsite =
   if !Options.top_location then top
@@ -192,4 +225,6 @@ let to_string : t -> string = fun x ->
   foldi (fun a b s ->
       let str = A.to_string a ^ " -> " ^ B.to_string b in
       link_by_sep "\n\t" str s) x ""
+
+let priority ?(isPointer=false) x = ArrInfo.priority isPointer (offsetof x) (sizeof x) (strideof x) (nullof x)
 
