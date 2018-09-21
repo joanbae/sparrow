@@ -424,7 +424,7 @@ let model_alloc_one mode spec pid (lvo, exps) f (mem, global) loc n_info =
     let arr_val = Val.modify_footprints here loc (Fun (f.vname, exps)) n_info arr_val in
     let ext_loc = PowLoc.singleton (Loc.of_allocsite allocsite) in
     let ext_val, here = Val.itv_top, [%here] in
-    let ext_val = Val.modify_footprints here loc (Fun (f.vname, exps)) (Val.to_string ext_val) ext_val in
+    let ext_val = Val.modify_footprints here loc (Fun (f.vname, exps)) ~n_info ext_val in
     let mem = update mode spec global (eval_lv ~spec pid lv mem loc ~n_info) arr_val mem in
     let mem = update mode spec global ext_loc ext_val mem in
     (mem,global)
