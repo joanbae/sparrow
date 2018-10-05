@@ -46,6 +46,10 @@ struct
            StructBlk.is_empty x.structblk |> fun r -> if not r then r else
              PowProc.is_empty x.powproc
 
+  let check_powloc_greater_than_equal_to_two x =
+     PowLoc.is_empty x.powloc |> fun r -> if r then not r else
+       PowLoc.priority x.powloc |> fun r -> if r = 3 then true else false
+
   let pp fmt x =
     Format.fprintf fmt "( %a, %a, %a, %a, %a )"
       Itv.pp x.itv
@@ -64,6 +68,7 @@ type t = {
   value : Value.t;                (** value **)
   order : int;
   parent : t option;
+  addrOf : t option;
   priority : int
 }
 
@@ -71,16 +76,23 @@ let rec pp fmt {file; line;
             src_location = {Cil.file = src_file;
                             line = src_line;
                             byte = src_byte};
-           exp; n_info; value; order; parent; priority} =
+           exp; n_info; value; order; parent; addrOf; priority} =
   let file_name =  Filename.basename file in
   let exp = ExpArg.to_string exp in 
   Format.fprintf fmt "v:%a ==> %s@%s:%d(%s:%d:%d)@%s, o:%d p:%d"
     Value.pp value exp file_name line src_file src_line src_byte n_info order priority;
-  match parent with
+  let () =
+   match parent with
   | None -> ()
   | Some parent ->
     ( Format.fprintf fmt "{ @[ parent:";
       pp fmt parent;
+      Format.fprintf fmt "@] }" ) in
+   match addrOf with
+  | None -> ()
+  | Some addr ->
+    ( Format.fprintf fmt "{ @[ AddrOf:";
+      pp fmt addr;
       Format.fprintf fmt "@] }" )
 
 let to_string x = Format.asprintf "%a" pp x
@@ -91,7 +103,7 @@ let compare x y =
       Cil.compareLoc x.src_location y.src_location |> fun r -> if r <> 0 then r else
         compare x.value y.value
 
-let of_here ?(parent=None) here src_location exp n_info value order priority : t =
+let of_here ?(parent=None) ?(addrOf=None) here src_location exp n_info value order priority : t =
   { file = here.Lexing.pos_fname;
     line = here.Lexing.pos_lnum;
     src_location;
@@ -100,5 +112,6 @@ let of_here ?(parent=None) here src_location exp n_info value order priority : t
     value;
     order;
     parent;
+    addrOf;
     priority
   }
