@@ -11,6 +11,8 @@
 open BasicDom
 open Vocab
 module ExpArg = Footprint.ExpArg
+module FP = Footprint
+module FPS = Footprints
 
 module Val =
 struct
@@ -79,7 +81,7 @@ struct
       else false
 
   let priority ?(isPointer=false) ?(widen=false) v  =
-    if v = bot then 0
+    if v = bot then 3
     else if only_itv_exists v then Itv.priority ~widen (itv_of_val v)
     else if only_ploc_exists v then PowLoc.priority (pow_loc_of_val v)
     else if only_array_exists v then ArrayBlk.priority ~isPointer (array_of_val v)
@@ -117,8 +119,7 @@ struct
       let f = Footprints.add (Footprint.of_here here loc e n_info fp_value (increment_fp_count ()) pri) (footprints_of_val x) in
       (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f)
 
-  (*eval_lv에서 나오는 Footprint를 처리하기 위해서 쓴다.*)
-  let modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> ExpArg.t -> n_info:string -> ?isPointer:bool -> ?widen:bool -> t -> t
+ let modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> ExpArg.t -> n_info:string -> ?isPointer:bool -> ?widen:bool -> t -> t
     = fun here fp loc e ~n_info ?(isPointer = false) ?(widen = false) x ->
       let pri = priority ~isPointer ~widen x in
       let fp_value = fp_value_of_val x in
@@ -138,6 +139,17 @@ struct
 
   let modify_footprints''' : (Lexing.position * bool) list -> Cil.location -> ExpArg.t -> n_info: string -> t -> t
     = fun hlst loc e ~n_info x -> List.fold_left (fun v (here, isPointer) -> modify_footprints here loc e ~n_info ~isPointer v) x hlst
+
+  (*eval_lv에서 나오는 Footprint를 처리하기 위해서 쓴다.*)
+  let modify_footprints'''' : Lexing.position -> FP.t -> FPS.t option -> Cil.location -> ExpArg.t -> n_info:string -> ?isPointer:bool -> ?widen:bool -> t -> t
+    = fun here lv_fp fp_opt loc e ~n_info ?(isPointer = false) ?(widen = false) x ->
+      let priority = priority ~isPointer ~widen x in
+      let fp_value = fp_value_of_val x in
+      let f = Footprint.of_here ~addrOf:(Some lv_fp) here loc e n_info fp_value (increment_fp_count ()) priority in
+      let new_fp = match fp_opt with
+        | None -> Footprints.add f (footprints_of_val x)
+        | Some fps -> Footprints.add f (Footprints.join fps (footprints_of_val x)) in
+      (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, new_fp)
 
   let modify_priority v p =
     let fps = Footprints.modify_priority (footprints_of_val v) p in

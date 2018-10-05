@@ -13,13 +13,13 @@ let remove_extra_fps' v =
   Val.modify_fp_only v_only (remove_extra_fps (Val.footprints_of_val v))
 
 let add_lv pid lv mem loc n_num =
-  let (powloc, fp) = ItvSem.eval_lv_with_footprint pid lv mem loc n_num in
+  let (powloc, lv_fp, fp_opt) = ItvSem.eval_lv_with_footprint pid lv mem loc n_num in
   let v = ItvDom.Mem.lookup powloc mem in
   DM.long (fun () ->
       if v = Val.bot then
         let () = Format.fprintf Format.err_formatter "%s" "Value is bot and its ploc was computed in the following way" in
         Format.fprintf Format.err_formatter "@\n=======@\n";
-        Footprints.pp Format.err_formatter fp
+        Footprints.pp Format.err_formatter (Footprints.singleton lv_fp)
       else
       (* BasicDom.PowLoc.pp Format.err_formatter powloc;
        * Format.fprintf Format.err_formatter "@\n=======@\n";

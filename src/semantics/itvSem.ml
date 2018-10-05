@@ -191,7 +191,7 @@ let rec resolve_offset : Spec.t -> Proc.t -> Val.t -> Cil.offset ->
     let fp = FP.of_here ~parent:(Some fp) here loc index_exp n_info (fp_value ploc') (fp_count()) (fp_priority ploc') in
     resolve_offset spec pid (Val.of_pow_loc ploc') os' mem (fp, loc) exp n_info
 
-and eval_lv_with_footprint ?(spec=Spec.empty) : Proc.t -> Cil.lval -> Mem.t -> Cil.location -> n_info:string -> PowLoc.t * Footprints.t
+and eval_lv_with_footprint ?(spec=Spec.empty) : Proc.t -> Cil.lval -> Mem.t -> Cil.location -> n_info:string -> PowLoc.t * Footprint.t * Footprints.t option
   = fun pid lv mem loc ~n_info ->
     let v, here, fpo =
       match fst lv with
@@ -205,43 +205,53 @@ and eval_lv_with_footprint ?(spec=Spec.empty) : Proc.t -> Cil.lval -> Mem.t -> C
     let base_pri = if Val.eq v Val.bot then 4 else 0 in
     let base_fp = FP.of_here here loc (BaseLoc (fst lv)) n_info (Val.fp_value_of_val v) (Val.increment_fp_count ()) base_pri in
     let powloc, fp' = resolve_offset spec pid v (snd lv) mem (base_fp, loc) (BaseLoc (fst lv)) n_info in
-    let new_fps = match fpo with
-      | None -> FPS.singleton (calculate_priority_of_eval_lv fp')
-      | Some fps -> FPS.join fps (FPS.singleton (calculate_priority_of_eval_lv fp')) in
-    (PowLoc.remove Loc.null powloc, new_fps)
+    (PowLoc.remove Loc.null powloc, calculate_priority_of_eval_lv fp', fpo)
 
 and calculate_priority_of_eval_lv = fun fp ->
   let increase_priority fp = {fp with Footprint.priority = fp.Footprint.priority + 4} in
-    let rec parent_passing_non_bot fp = (* case1: when parents pass non_bot value to the children *)
+  let increase_priority_when_more_than_two fp = {fp with Footprint.priority = fp.Footprint.priority + 3} in
+  let rec parent_passing_non_bot fp = (* case1: when parents pass non_bot value to the children *)
+    let parent = fp.Footprint.parent in
+    if Footprint.Value.check_bot fp.Footprint.value then
+      match parent with
+      | None -> fp
+      | Some parent -> 
+        let parent =
+          if not (Footprint.Value.check_bot parent.value) then
+            increase_priority parent
+          else
+            parent_passing_non_bot parent in
+        {fp with parent = Some parent}
+    else
+      fp in
+  let rec parent_passing_bot fp = (* case2: when parents pass bot value to the children *)
+    if Footprint.Value.check_bot fp.Footprint.value then
       let parent = fp.Footprint.parent in
-      if Footprint.Value.check_bot fp.Footprint.value then
-        match parent with
-        | None -> fp
-        | Some parent -> 
-          let parent =
-            if not (Footprint.Value.check_bot parent.value) then
-              increase_priority parent
-            else
-              parent_passing_non_bot parent in
-          {fp with parent = Some parent}
-      else
-        fp in
-     let rec parent_passing_bot fp = (* case2: when parents pass bot value to the children *)
-      if Footprint.Value.check_bot fp.Footprint.value then
-        let parent = fp.Footprint.parent in
-        match parent with
-        | None -> fp
-        | Some parent ->
-          let child, parent =
-            if Footprint.Value.check_bot parent.value then
-              (fp, parent_passing_bot parent)
-            else
-              (increase_priority fp, parent)
-          in
-          { child with parent = Some parent}
-      else
-        fp in
-  fp |> parent_passing_non_bot |> parent_passing_bot
+      match parent with
+      | None -> fp
+      | Some parent ->
+        let child, parent =
+          if Footprint.Value.check_bot parent.value then
+            (fp, parent_passing_bot parent)
+          else
+            (increase_priority fp, parent)
+        in
+        { child with parent = Some parent}
+    else
+      fp in
+  let rec parent_passing_more_than_two fp =
+    let parent = fp.Footprint.parent in
+    match parent with
+    | None -> fp
+    | Some parent ->
+      let parent =
+        if Footprint.Value.check_powloc_greater_than_equal_to_two parent.value then
+          increase_priority_when_more_than_two parent
+        else
+          parent_passing_more_than_two parent in
+      {fp with parent = Some parent}
+  in
+  fp |> parent_passing_non_bot |> parent_passing_bot |> parent_passing_more_than_two
 
 and var_of_varinfo vi pid  =
   if vi.Cil.vglob then Loc.of_gvar vi.Cil.vname vi.Cil.vtype, [%here]
@@ -253,9 +263,8 @@ and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> stri
     match e with
     | Cil.Const c -> eval_const c loc n_info
     | Cil.Lval l -> 
-      let powloc, fp = eval_lv_with_footprint ~spec pid l mem loc ~n_info in
-      let v, here = lookup powloc mem, [%here] in
-      Val.modify_footprints' here fp loc s_exp n_info v
+      let lv, lv_fp, fp_opt = eval_lv_with_footprint ~spec pid l mem loc ~n_info in
+      Val.modify_footprints'''' [%here] lv_fp fp_opt loc s_exp n_info (lookup lv mem)
     | Cil.SizeOf t ->
       let sizeOf, here =
         Val.of_itv (try CilHelper.byteSizeOf t |> Itv.of_int with _ -> Itv.pos), [%here] in
@@ -293,16 +302,18 @@ and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> stri
       let v = eval ~spec pid e mem loc n_info in
       (try Val.cast (Cil.typeOf e) t v (loc, e) n_info with _ -> Val.modify_footprints [%here] loc s_exp n_info v)
     | Cil.AddrOf l ->
-      let powloc, fp = eval_lv_with_footprint ~spec pid l mem loc ~n_info in
-      Val.modify_footprints' [%here] fp loc s_exp n_info (Val.of_pow_loc powloc)
+      let powloc, lv_fp, fp_opt = eval_lv_with_footprint ~spec pid l mem loc ~n_info in
+      Val.modify_footprints'''' [%here] lv_fp fp_opt loc s_exp n_info (Val.of_pow_loc powloc)
     | Cil.AddrOfLabel _ ->
       invalid_arg "itvSem.ml:eval AddrOfLabel mem. \
                    Analysis does not support label values."
     | Cil.StartOf l ->
-      let powloc, fp = eval_lv_with_footprint ~spec pid l mem loc ~n_info in
-      Val.modify_footprints' [%here] fp loc s_exp n_info (lookup powloc mem)
+      let powloc, lv_fp, fp_opt = eval_lv_with_footprint ~spec pid l mem loc ~n_info in
+      Val.modify_footprints'''' [%here] lv_fp fp_opt loc s_exp n_info (lookup powloc mem)
 
-let eval_lv ?(spec=Spec.empty) pid lv mem loc ~n_info = fst (eval_lv_with_footprint ~spec pid lv mem loc ~n_info)
+let eval_lv ?(spec=Spec.empty) pid lv mem loc ~n_info =
+  let (lv, _, _) = (eval_lv_with_footprint ~spec pid lv mem loc ~n_info) in
+  lv
 
 let eval_list : Spec.t -> Proc.t -> Cil.exp list -> Mem.t -> Cil.location -> n_info:string -> Val.t list
 = fun spec pid exps mem loc ~n_info -> List.map (fun e -> eval ~spec pid e mem loc n_info) exps
