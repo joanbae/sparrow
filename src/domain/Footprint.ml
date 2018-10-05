@@ -79,8 +79,8 @@ let rec pp fmt {file; line;
            exp; n_info; value; order; parent; addrOf; priority} =
   let file_name =  Filename.basename file in
   let exp = ExpArg.to_string exp in 
-  Format.fprintf fmt "v:%a ==> %s@%s:%d(%s:%d:%d)@%s, o:%d p:%d"
-    Value.pp value exp file_name line src_file src_line src_byte n_info order priority;
+  Format.fprintf fmt "v:%a ==> %s@%s:%d(%s:%d)@%s, o:%d p:%d"
+    Value.pp value exp file_name line src_file src_line n_info order priority;
   let () =
    match parent with
   | None -> ()

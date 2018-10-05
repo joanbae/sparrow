@@ -300,7 +300,7 @@ and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> stri
         Val.modify_footprints here loc s_exp n_info v
     | Cil.CastE (t, e) ->
       let v = eval ~spec pid e mem loc n_info in
-      (try Val.cast (Cil.typeOf e) t v (loc, e) n_info with _ -> Val.modify_footprints [%here] loc s_exp n_info v)
+      (try Val.cast (Cil.typeOf e) t v (loc, (Cil.CastE (t,e))) n_info with _ -> Val.modify_footprints [%here] loc s_exp n_info v)
     | Cil.AddrOf l ->
       let powloc, lv_fp, fp_opt = eval_lv_with_footprint ~spec pid l mem loc ~n_info in
       Val.modify_footprints'''' [%here] lv_fp fp_opt loc s_exp n_info (Val.of_pow_loc powloc)
