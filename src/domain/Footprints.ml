@@ -85,15 +85,18 @@ let rec list_pp fmt = function
     list_pp fmt tl
 
 let sort fp =
- let compare_fps_by_order fp1 fp2 = fp2.Footprint.order - fp1.Footprint.order in
+  let compare_fps_by_order fp1 fp2 = fp2.Footprint.order - fp1.Footprint.order in
+  
   let compare_fps_by_priority fp1 fp2 =
     let rec calc_priority (fp:Footprint.t) =
-      match fp.Footprint.parent with
+      match fp.Footprint.addrOf with
       | None -> fp.priority
-      | Some parent -> max fp.priority (calc_priority parent)
-    in
-    calc_priority fp2 - calc_priority fp1
-  in
+      | Some addrOf -> (match addrOf.Footprint.parent with
+        | None -> fp.priority
+        | Some parent -> max fp.priority (calc_priority parent))
+      in
+      calc_priority fp2 - calc_priority fp1
+ in
   List.sort compare_fps_by_order fp |> List.sort compare_fps_by_priority
 
 let pp fmt x =
@@ -102,11 +105,11 @@ let pp fmt x =
       list_pp fmt (sort (elements x));
       Format.fprintf fmt "@] }" )
 
-let of_here ?(parent=None) here src_location exp n_num value order priority =
-  singleton (Footprint.of_here here src_location exp n_num value order ~parent priority)
+let of_here ?(parent=None) ?(addrOf=None) here src_location exp n_num value order priority =
+  singleton (Footprint.of_here here src_location exp n_num value order ~parent ~addrOf priority)
 
-let make ?(parent=None) file line src_location exp n_info value order priority =
-  add {Footprint.file; line; src_location; exp; n_info; value; order; parent; priority} empty
+let make ?(parent=None) ?(addrOf=None) file line src_location exp n_info value order priority =
+  add {Footprint.file; line; src_location; exp; n_info; value; order; parent; addrOf; priority} empty
 
 let modify_priority : t -> int -> t = fun x priority ->
   let footprint_max x y = if x.Footprint.order > y.Footprint.order then x else y in
