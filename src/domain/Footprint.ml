@@ -79,8 +79,8 @@ let rec pp fmt {file; line;
            exp; n_info; value; order; parent; addrOf; priority} =
   let file_name =  Filename.basename file in
   let exp = ExpArg.to_string exp in 
-  Format.fprintf fmt "v:%a ==> %s@%s:%d(%s:%d:%d)@%s, o:%d p:%d"
-    Value.pp value exp file_name line src_file src_line src_byte n_info order priority;
+  Format.fprintf fmt "v:%a ==> %s@%s:%d(%s:%d)@%s, o:%d p:%d"
+    Value.pp value exp file_name line src_file src_line n_info order priority;
   let () =
    match parent with
   | None -> ()
@@ -100,7 +100,9 @@ let to_string x = Format.asprintf "%a" pp x
 let compare x y =
   compare x.file y.file |> fun r -> if r <> 0 then r else
     compare x.line y.line |> fun r -> if r <> 0 then r else
-      Cil.compareLoc x.src_location y.src_location
+      Cil.compareLoc x.src_location y.src_location |> fun r -> if r <> 0 then r else
+        compare x.value y.value
+
 
 let of_here ?(parent=None) ?(addrOf=None) here src_location exp n_info value order priority : t =
   { file = here.Lexing.pos_fname;
