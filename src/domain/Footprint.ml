@@ -97,12 +97,22 @@ let rec pp fmt {file; line;
 
 let to_string x = Format.asprintf "%a" pp x
 
-let compare x y =
-  compare x.file y.file |> fun r -> if r <> 0 then r else
-    compare x.line y.line |> fun r -> if r <> 0 then r else
+let rec compare x y =
+  Pervasives.compare x.file y.file |> fun r -> if r <> 0 then r else
+    Pervasives.compare x.line y.line |> fun r -> if r <> 0 then r else
       Cil.compareLoc x.src_location y.src_location |> fun r -> if r <> 0 then r else
-        compare x.value y.value
-
+        Value.compare x.value y.value |> fun r -> if r <> 0 then r else
+          ( match x.addrOf, y.addrOf with
+            | None, None -> 0
+            | Some addr, None -> 1
+            | None , Some addr -> -1
+            | Some addr1, Some addr2 ->
+              compare addr1 addr2 ) |> fun r -> if r <> 0 then r else
+            ( match x.parent, y.parent with
+              | Some addr1, Some addr2 -> compare addr1 addr2
+              | None, None -> 0
+              | Some addr, None -> 1
+              | None, Some addr -> -1)
 
 let of_here ?(parent=None) ?(addrOf=None) here src_location exp n_info value order priority : t =
   { file = here.Lexing.pos_fname;
