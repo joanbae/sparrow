@@ -50,11 +50,9 @@ let lookup : PowLoc.t -> Mem.t -> Val.t
 
 let update : update_mode -> Spec.t -> Global.t -> PowLoc.t -> Val.t -> Mem.t -> Mem.t
   = fun mode spec global locs v mem ->
-    let check_v = (** Check if it first-time initialized **)
-      if lookup locs mem = Val.bot then
-        if v = Val.bot then v
-        else Val.modify_priority v 10 (** First Assignment Cost**)
-      else v in
+    let check_v = (** give priority when value gets updated **)
+      if Val.without_fp v = Val.bot then v
+      else Val.modify_priority v 5  in
     if can_strong_update mode spec global locs then Mem.strong_update locs check_v mem
     else Mem.weak_update locs check_v mem
 

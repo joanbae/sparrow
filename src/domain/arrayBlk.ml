@@ -127,6 +127,7 @@ struct
       | Itv.V(Int 0, _) | Itv.V(_, Int 0)-> 4
       | Itv.V(Int lb, Int ub) when isPointer && (lb!=1 || ub !=1) -> 4
       | Itv.V(Itv.Integer.MInf, Itv.Integer.PInf)-> 3
+      | Itv.V(Int lb, Int ub) when (lb > 255) || (ub > 255) -> 2
       | Itv.V(Itv.Integer.MInf, _) -> 2
       | Itv.V(Int lb, _) when lb < 0 -> 2
       | Itv.V(_, Itv.Integer.PInf) -> 1
