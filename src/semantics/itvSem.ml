@@ -502,7 +502,7 @@ let model_strdup mode spec node (lvo, exps) (mem, global) loc' =
   | _ -> (mem,global)
 
 let model_input mode spec pid (lvo, exps) (mem, global) loc n_info =
-  let modify_fp here ?(exp=(ExpArg.Fun("input", exps))) v = Val.modify_footprints here loc exp n_info v in
+  let modify_fp here ?(exp=(ExpArg.Fun("getenv", exps))) v = Val.modify_footprints here loc exp n_info v in
   match lvo with
     Some lv ->
       let allocsite = Allocsite.allocsite_of_ext None in
