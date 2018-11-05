@@ -52,7 +52,7 @@ let update : update_mode -> Spec.t -> Global.t -> PowLoc.t -> Val.t -> Mem.t -> 
   = fun mode spec global locs v mem ->
     let check_v = (** give priority when value gets updated **)
       if Val.without_fp v = Val.bot then v
-      else Val.modify_priority v 5  in
+      else Val.increase_priority v 5  in
     if can_strong_update mode spec global locs then Mem.strong_update locs check_v mem
     else Mem.weak_update locs check_v mem
 
@@ -262,7 +262,7 @@ and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> stri
     | Cil.Const c -> eval_const c loc n_info
     | Cil.Lval l -> 
       let lv, lv_fp, fp_opt = eval_lv_with_footprint ~spec pid l mem loc ~n_info in
-      Val.modify_footprints'''' [%here] lv_fp fp_opt loc s_exp n_info (lookup lv mem)
+      Val.modify_footprints'''' [%here] lv_fp fp_opt loc s_exp n_info lv (lookup lv mem)
     | Cil.SizeOf t ->
       let sizeOf, here =
         Val.of_itv (try CilHelper.byteSizeOf t |> Itv.of_int with _ -> Itv.pos), [%here] in
@@ -301,13 +301,13 @@ and eval ?(spec=Spec.empty) : Proc.t -> Cil.exp -> Mem.t -> Cil.location -> stri
       (try Val.cast (Cil.typeOf e) t v (loc, (Cil.CastE (t,e))) n_info with _ -> Val.modify_footprints [%here] loc s_exp n_info v)
     | Cil.AddrOf l ->
       let powloc, lv_fp, fp_opt = eval_lv_with_footprint ~spec pid l mem loc ~n_info in
-      Val.modify_footprints'''' [%here] lv_fp fp_opt loc s_exp n_info (Val.of_pow_loc powloc)
+      Val.modify_footprints'''' [%here] lv_fp fp_opt loc s_exp n_info powloc (Val.of_pow_loc powloc)
     | Cil.AddrOfLabel _ ->
       invalid_arg "itvSem.ml:eval AddrOfLabel mem. \
                    Analysis does not support label values."
     | Cil.StartOf l ->
       let powloc, lv_fp, fp_opt = eval_lv_with_footprint ~spec pid l mem loc ~n_info in
-      Val.modify_footprints'''' [%here] lv_fp fp_opt loc s_exp n_info (lookup powloc mem)
+      Val.modify_footprints'''' [%here] lv_fp fp_opt loc s_exp n_info powloc (lookup powloc mem)
 
 let eval_lv ?(spec=Spec.empty) pid lv mem loc ~n_info =
   let (lv, _, _) = (eval_lv_with_footprint ~spec pid lv mem loc ~n_info) in

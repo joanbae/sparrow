@@ -141,18 +141,31 @@ struct
     = fun hlst loc e ~n_info x -> List.fold_left (fun v (here, isPointer) -> modify_footprints here loc e ~n_info ~isPointer v) x hlst
 
   (*eval_lv에서 나오는 Footprint를 처리하기 위해서 쓴다.*)
-  let modify_footprints'''' : Lexing.position -> FP.t -> FPS.t option -> Cil.location -> ExpArg.t -> n_info:string -> ?isPointer:bool -> ?widen:bool -> t -> t
-    = fun here lv_fp fp_opt loc e ~n_info ?(isPointer = false) ?(widen = false) x ->
+  let modify_footprints'''' : Lexing.position -> FP.t -> FPS.t option -> Cil.location -> ExpArg.t -> n_info:string -> ?isPointer:bool -> ?widen:bool -> BasicDom.PowLoc.t -> t -> t
+    = fun here lv_fp fp_opt loc e ~n_info ?(isPointer = false) ?(widen = false) lv x ->
       let priority = priority ~isPointer ~widen x in
       let fp_value = fp_value_of_val x in
       let f = Footprint.of_here ~addrOf:(Some lv_fp) here loc e n_info fp_value (increment_fp_count ()) priority in
+      (*  when cfc for the statement below
+       *      char *value = getenv("USER");
+       *      is genearted in this way
+       *      1. tmp:= call(@getenv, (__cil_tmp5)
+       *      2. set(value,tmp)
+       * give higher priority to 2. by one *)
+      let fp_switched =
+        let l = lv |> BasicDom.PowLoc.filter (fun x -> BasicDom.Loc.is_local_tmp_of x) |> BasicDom.PowLoc.elements in
+        if l != [] && List.length l = 1 then
+          FPS.add f (FPS.increase_priority (footprints_of_val x) 1)              (* increse old_fp's priority by one  *)
+        else
+          FPS.add f (footprints_of_val x) in
       let new_fp = match fp_opt with
-        | None -> Footprints.add f (footprints_of_val x)
-        | Some fps -> Footprints.add f (Footprints.join fps (footprints_of_val x)) in
+        | None -> fp_switched
+        | Some fps -> Footprints.join fps fp_switched in
       (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, new_fp)
 
-  let modify_priority v p =
-    let fps = Footprints.modify_priority (footprints_of_val v) p in
+
+  let increase_priority v p =
+    let fps = Footprints.increase_priority(footprints_of_val v) p in
     (itv_of_val v, pow_loc_of_val v, array_of_val v, struct_of_val v, pow_proc_of_val v, fps)
   
   let external_value : Allocsite.t -> t = fun allocsite ->

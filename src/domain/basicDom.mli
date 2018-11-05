@@ -45,6 +45,7 @@ module Loc : sig
   val of_allocsite : Allocsite.t -> t
   val return_var : Proc.t -> Cil.typ -> t
   val is_local_of : Proc.t -> t -> bool
+  val is_local_tmp_of : t -> bool
   val get_proc : t -> Proc.t
   val typ : t -> Cil.typ option
   val pp : Format.formatter -> t -> unit
