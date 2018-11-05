@@ -114,7 +114,7 @@ let of_here ?(parent=None) ?(addrOf=None) here src_location exp n_num value orde
 let make ?(parent=None) ?(addrOf=None) file line src_location exp n_info value order priority =
   add {Footprint.file; line; src_location; exp; n_info; value; order; parent; addrOf; priority} empty
 
-let modify_priority : t -> int -> t = fun x priority ->
+let increase_priority : t -> int -> t = fun x priority ->
   let footprint_max x y = if x.Footprint.order > y.Footprint.order then x else y in
   let find_max_fp (fps:t) =
     let get_max fp acc =
@@ -130,3 +130,18 @@ let modify_priority : t -> int -> t = fun x priority ->
   match find_max_fp x with
   | None -> x
   | Some fp -> add {fp with priority = fp.priority + priority} (remove fp x)
+
+let latest_elt : t -> elt option = fun x ->
+  let footprint_max x y = if x.Footprint.order > y.Footprint.order then x else y in
+  let find_max_fp (fps:t) =
+    let get_max fp acc =
+      let max_fp =
+        match acc with
+        | None -> fp
+        | Some fp' -> footprint_max fp fp'
+      in
+      Some max_fp
+    in
+    M.fold get_max fps None
+  in
+  find_max_fp x
