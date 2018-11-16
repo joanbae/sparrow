@@ -80,11 +80,22 @@ struct
       if ploc && not arr && s && itv then true
       else false
 
+  let only_struct_exists v =
+    if v = bot then false
+    else
+      let itv = Itv.is_bot (itv_of_val v) in
+      let ploc = PowLoc.is_empty (pow_loc_of_val v) in
+      let arr = ArrayBlk.is_empty (array_of_val v) in
+      let s = StructBlk.is_empty (struct_of_val v) in
+      if ploc && arr && not s && itv then true
+      else false
+
   let priority ?(isPointer=false) ?(widen=false) v  =
     if v = bot then 3
     else if only_itv_exists v then Itv.priority ~widen (itv_of_val v)
     else if only_ploc_exists v then PowLoc.priority (pow_loc_of_val v)
     else if only_array_exists v then ArrayBlk.priority ~isPointer (array_of_val v)
+    else if only_struct_exists v then StructBlk.priority ~isPointer (struct_of_val v)
     else
       (* let str int = string_of_int int in
        * print_endline(str(Itv.priority (itv_of_val v))^","^ str(PowLoc.priority (pow_loc_of_val v))^","^str (ArrayBlk.priority ~isPointer (array_of_val v))); *)

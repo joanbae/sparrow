@@ -20,7 +20,10 @@ struct
   let pp fmt x = Format.fprintf fmt "%s" x
 end
 
-module PowStruct = PowDom.MakeCPO (Struct)
+module PowStruct = struct
+  include PowDom.MakeCPO (Struct)
+  let priority x = if cardinal x >=2 then 3 else 0
+end
 
 include MapDom.MakeLAT (Loc) (PowStruct)
 
@@ -48,3 +51,9 @@ let to_string : t -> string = fun x ->
   foldi (fun a b s ->
       let str = A.to_string a ^ " -> " ^ B.to_string b in
       link_by_sep "\n\t" str s) x ""
+
+let priority ?(isPointer=false) x =
+  (* We assume there is only one element in the map *)
+  (* Further inspection is needed *)
+  (* ex) (main,data1) -> {_CALC_DATA___1} *)
+  try PowStruct.priority (snd (choose x)) with Not_found -> 0
