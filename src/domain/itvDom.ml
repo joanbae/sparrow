@@ -192,10 +192,28 @@ struct
         null |> modify_footprints' [%here] fp loc (Exp exp) ~n_info
       else if Cil.isIntegralType to_typ then
         let itv, here = Itv.cast from_typ to_typ (itv_of_val v), [%here] in
-        modify_footprints' here fp loc (Exp exp) ~n_info (of_itv itv)
+        let priority = Itv.priority itv in
+        match FPS.latest_elt fp with
+        | None ->
+          modify_footprints' here fp loc (Exp exp) ~n_info (of_itv itv)
+        | Some f ->
+          (* 3. if arr's priority > last fp's priority then give the same amount of priority to the old one *)
+          FPS.increase_priority fp priority |> fun fp ->
+          modify_footprints' here fp loc (Exp exp) ~n_info (of_itv itv |> without_fp)
+        (* modify_footprints' here fp loc (Exp exp) ~n_info (of_itv itv) *)
       else
         let arr, here = ArrayBlk.cast_array to_typ (array_of_val v), [%here] in
-        modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr)
+        (* 1. get priority of arr *)
+        let priority = ArrayBlk.priority arr in
+        (* 2. compare with last fp's priority *)
+        match FPS.max_priority_elt fp with
+        | None ->
+          modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr)
+        | Some f ->
+          (* 3. if arr's priority > last fp's priority then give the same amount of priority to the old one *)
+          FPS.increase_priority' fp priority |> fun fp ->
+          modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr |> without_fp)
+        (* modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr) *)
 
   let to_string x =
    "("^(Itv.to_string (fst x))^", "^(PowLoc.to_string (snd x))^", "
