@@ -18,6 +18,7 @@ module Val =
 struct
   include ProdDom.Make6 (Itv) (PowLoc) (ArrayBlk) (StructBlk) (PowProc) (Footprints)
   let fp_count = ref 0
+  let debug_on = ref false
   let null = (Itv.bot, PowLoc.null, ArrayBlk.bot, StructBlk.bot, PowProc.bot, Footprints.bot)
   let is_itv (i,_,_,_,_,_) = not (Itv.is_bot i)
   let is_array (_,_,a,_,_,_) = not (ArrayBlk.is_empty a)
@@ -188,7 +189,7 @@ struct
     = fun from_typ to_typ v (loc, exp) ~n_info ->
       let fp = footprints_of_val v in
       let (from_typ, to_typ) = BatTuple.Tuple2.mapn Cil.unrollTypeDeep (from_typ, to_typ) in
-      if v = (of_itv Itv.zero) && (Cil.isPointerType to_typ) then (* char* x = (char* ) 0 *)
+      if without_fp v = (of_itv Itv.zero) && (Cil.isPointerType to_typ) then (* char* x = (char* ) 0 *)
         null |> modify_footprints' [%here] fp loc (Exp exp) ~n_info
       else if Cil.isIntegralType to_typ then
         let itv, here = Itv.cast from_typ to_typ (itv_of_val v), [%here] in
