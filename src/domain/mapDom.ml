@@ -64,11 +64,14 @@ struct
 
   let to_string : t -> string = fun x ->
     let add_string_of_k_v k v acc =
-      let str = A.to_string k ^ " -> " ^ B.to_string v in
-      acc ^ "\n" ^ str
+      let str = "{"^A.to_string k ^ "," ^ B.to_string v ^"}"in
+      acc ^ "\n" ^ str ^","
     in
-    if BatMap.is_empty x then "bot"
-    else "{" ^ BatMap.fold add_string_of_k_v x "" ^ "}"
+    if BatMap.is_empty x then "[\"bot\"]"
+    else
+      BatMap.fold add_string_of_k_v x "" |> fun r ->
+      let result = String.sub r 0 (String.length r-1) in
+      "[" ^ result ^ "]"
 
   let cardinal = BatMap.cardinal
   let choose = BatMap.choose
@@ -291,8 +294,8 @@ struct
   let pp fmt m =
     let rec pp_map fmt = function
       | [] -> ()
-      | [(k, v)] -> Format.fprintf fmt "@[<h>%a -> %a@]" A.pp k B.pp v
-      | (k, v)::t -> Format.fprintf fmt "@[<h>%a -> %a@\n@]" A.pp k B.pp v; pp_map fmt t
+      | [(k, v)] -> Format.fprintf fmt "@[<h>%a : %a@]" A.pp k B.pp v
+      | (k, v)::t -> Format.fprintf fmt "@[<h>%a : %a@\n@]" A.pp k B.pp v; pp_map fmt t
     in
     if is_empty m then Format.fprintf fmt "bot"
     else Format.fprintf fmt "@[<hov 2>{ %a }@]" pp_map (bindings m)

@@ -168,12 +168,19 @@ let of_ints : int -> int -> t = fun lb ub -> V (Int lb, Int ub)
 let of_integer : Integer.t -> Integer.t -> t = fun l u -> V (l, u)
 
 let to_string : t -> string = function
-  | Bot -> "bot"
-  | V (l, u) -> "["^(Integer.to_string l)^", "^(Integer.to_string u)^"]"
+  | Bot -> "\"bot\""
+  | V (l, u) -> "\"["^(Integer.to_string l)^", "^(Integer.to_string u)^"]\""
+
+let to_string' : t -> string = function
+  | Bot -> "\"itv\":\"bot\""
+  | V (l, u) -> "\"itv\":\"["^(Integer.to_string l)^", "^(Integer.to_string u)^"]\""
+
+  (* | Bot -> "bot"
+   * | V (l, u) -> "["^(Integer.to_string l)^", "^(Integer.to_string u)^"]" *)
 
 let pp fmt = function
-  | Bot -> Format.fprintf fmt "bot"
-  | V (l, u) -> Format.fprintf fmt "[%a, %a]" Integer.pp l Integer.pp u
+  | Bot -> Format.fprintf fmt "\"itv\":\"bot\""
+  | V (l, u) -> Format.fprintf fmt "\"itv\":\"[%a, %a]\"" Integer.pp l Integer.pp u
 
 let to_json : t -> Yojson.Safe.json = fun itv ->
   `String (to_string itv)

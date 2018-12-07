@@ -109,11 +109,11 @@ struct
   let plus_null_pos arr i = { arr with null_pos = Itv.plus arr.null_pos i }
 
   let to_string arr =
-    "("^(Itv.to_string arr.offset)^", "^(Itv.to_string arr.size)^", "^(Itv.to_string arr.stride)
-    ^", "^(Itv.to_string arr.null_pos)^", "^(PowStruct.to_string arr.structure)^")"
+    "["^(Itv.to_string arr.offset)^", "^(Itv.to_string arr.size)^", "^(Itv.to_string arr.stride)
+    ^", "^(Itv.to_string arr.null_pos)^", \""^(PowStruct.to_string arr.structure)^"\"]"
 
   let pp fmt arr =
-    Format.fprintf fmt "@[<hov 2>( %a, %a, %a, %a, %a )@]" Itv.pp arr.offset
+    Format.fprintf fmt "@[<hov 2>\"arrinfo\" : { %a, %a, %a, %a, %a }@]" Itv.pp arr.offset
       Itv.pp arr.size Itv.pp arr.stride Itv.pp arr.null_pos PowStruct.pp arr.structure
 
   let priority isPointer offset size stride null_pos =
@@ -222,10 +222,20 @@ let append_field : t -> Cil.fieldinfo -> PowLoc.t
       else id) s PowLoc.bot
 
 let to_string : t -> string = fun x ->
-  if is_empty x then "bot" else
-  foldi (fun a b s ->
-      let str = A.to_string a ^ " -> " ^ B.to_string b in
-      link_by_sep "\n\t" str s) x ""
-
+  if is_empty x then "\"bot\"" else
+    foldi (fun a b s -> 
+        let str = "{\"allocsite\" :"^A.to_string a ^ ", \"arrinfo\": " ^ B.to_string b ^"}" in
+        link_by_sep "\n\t" str s) x ""
+      
 let priority ?(isPointer=false) x =
   ArrInfo.priority isPointer (offsetof x) (sizeof x) (strideof x) (nullof x)
+
+let pp fmt m =
+  if is_empty m then Format.fprintf fmt "\"Arrsite\":\"bot\", \"arrinfo\":\"bot\""
+  else
+   let k =  foldi (fun a b s ->
+        let str = "\"Arrsite\":"^A.to_string a ^ ",\"arrinfo\": " ^ B.to_string b ^"" in
+        link_by_sep "\n\t" str s) m "" in
+    Format.fprintf fmt "@[<hov 2> %s @]" k
+
+

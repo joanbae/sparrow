@@ -23,6 +23,13 @@ end
 module PowStruct = struct
   include PowDom.MakeCPO (Struct)
   let priority x = if cardinal x >=2 then 3 else 0
+  let pp fmt x =
+    let rec pp_elt fmt x =
+      if cardinal x = 1 then Format.fprintf fmt "@[<h>%a@]" Struct.pp (choose x)
+      else iter (fun elt -> Format.fprintf fmt "@[<h>%a,@]" Struct.pp elt) x
+    in
+    if is_empty x then Format.fprintf fmt "bot"
+    else Format.fprintf fmt "@[<hov 2>{%a}@]" pp_elt x
 end
 
 include MapDom.MakeLAT (Loc) (PowStruct)
@@ -47,9 +54,9 @@ let extern () =
   else bot
 
 let to_string : t -> string = fun x ->
-  if is_empty x then "bot" else
+  if is_empty x then "\"bot\"" else
   foldi (fun a b s ->
-      let str = A.to_string a ^ " -> " ^ B.to_string b in
+      let str = "{\"allocsite\" :"^A.to_string a ^ ", \"structinfo\": " ^ B.to_string b ^"}" in
       link_by_sep "\n\t" str s) x ""
 
 let priority ?(isPointer=false) x =
@@ -57,3 +64,12 @@ let priority ?(isPointer=false) x =
   (* Further inspection is needed *)
   (* ex) (main,data1) -> {_CALC_DATA___1} *)
   try PowStruct.priority (snd (choose x)) with Not_found -> 0
+
+
+let pp fmt m =
+  if is_empty m then Format.fprintf fmt "\"structblk\":\"bot\""
+  else
+   let k =  foldi (fun a b s ->
+        let str = "{\"strblksite\":"^A.to_string a ^ ",\"powstruct\": " ^ B.to_string b^"}" in
+        link_by_sep "\n\t" str s) m "" in
+    Format.fprintf fmt "@[<hov 2>{ %s }@]" k

@@ -217,11 +217,12 @@ struct
         (* modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr) *)
 
   let to_string x =
-   "("^(Itv.to_string (fst x))^", "^(PowLoc.to_string (snd x))^", "
-    ^(ArrayBlk.to_string (trd x))^", "
-    ^(StructBlk.to_string (frth x))^", "
-    ^(PowProc.to_string (fifth x))^", "
-    ^(Footprints.to_string (sixth x))^")"
+    "\"v\" : {"^
+    (Itv.to_string' (fst x))^", \"powloc\":\""^(PowLoc.to_string (snd x))^"\", \"arrblk\":"
+    ^(ArrayBlk.to_string (trd x))^", \"structblk\":"
+    ^(StructBlk.to_string (frth x))^", \"powproc\":\" "
+    ^(PowProc.to_string (fifth x))^"\"},"
+    ^"\n\"fps\":["^(Footprints.to_string (sixth x))^"]"
 
 end
 

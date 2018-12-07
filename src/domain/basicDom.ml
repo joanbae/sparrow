@@ -17,7 +17,16 @@ open Ppx_compare_lib.Builtin
 module Node = InterCfg.Node
 module PowNode = PowDom.MakeCPO(Node)
 module Proc = InterCfg.Proc
-module PowProc = PowDom.MakeCPO(Proc)
+module PowProc = struct 
+  include PowDom.MakeCPO(Proc)
+  let pp fmt x =
+    let rec pp_elt fmt x =
+      if cardinal x = 1 then Format.fprintf fmt "@[<h>%a@]" Proc.pp (choose x)
+      else iter (fun elt -> Format.fprintf fmt "@[<h>%a,@]" Proc.pp elt) x
+    in
+    if is_empty x then Format.fprintf fmt "\"powproc\":\"bot\""
+    else Format.fprintf fmt "@[<hov 2>{\"powproc\":\"%a\"@]" pp_elt x
+end
 
 module ExtAllocsite =
 struct
@@ -30,8 +39,8 @@ struct
       Unknown s -> s = "arg"
     | _ -> false
   let to_string = function
-    | Input -> "__extern__"
-    | Unknown s -> "__extern__" ^ s
+    | Input -> "\"__extern__\""
+    | Unknown s -> "\"__extern__" ^ s ^ "\""
   let pp fmt x = Format.fprintf fmt "%s" (to_string x)
 end
 
@@ -66,8 +75,8 @@ struct
     | External e -> ExtAllocsite.to_string e
 
   let pp fmt = function
-    | Internal i -> Format.fprintf fmt "%a" IntAllocsite.pp i
-    | External e -> Format.fprintf fmt "%a" ExtAllocsite.pp e
+    | Internal i -> Format.fprintf fmt "\"allocsite\": %a" IntAllocsite.pp i
+    | External e -> Format.fprintf fmt "\"allocsite\": %a" ExtAllocsite.pp e
 end
 
 module Loc =
@@ -96,8 +105,8 @@ struct
 
   let rec to_string = function
     | GVar (g, _) -> g
-    | LVar (p, x, _) -> "(" ^ Proc.to_string p ^ "," ^ x ^ ")"
-    | Allocsite a -> Allocsite.to_string a
+    | LVar (p, x, _) -> "\"loc\" : \"(" ^ Proc.to_string p ^ "," ^ x ^ ")\""
+    | Allocsite a -> "\"loc\" :"  ^ Allocsite.to_string a
     | Field (a, f, _) -> to_string a ^ "." ^ f
 
   let pp fmt x = Format.fprintf fmt "%s" (to_string x)
@@ -180,6 +189,14 @@ struct
       if mem null x then helper_pri (remove null x)
       else helper_pri x
     else 0
+
+  let pp fmt x =
+    let rec pp_elt fmt x =
+      if cardinal x = 1 then Format.fprintf fmt "@[<h>%a@]" Loc.pp (choose x)
+      else iter (fun elt -> Format.fprintf fmt "@[<h>%a,@]" Loc.pp elt) x
+    in
+    if is_empty x then Format.fprintf fmt "\"powloc\":\"bot\""
+    else Format.fprintf fmt "@[<hov 2>{\"powloc\":%a}@]" pp_elt x
 end
 
 module Dump = MapDom.MakeCPO (Proc) (PowLoc)

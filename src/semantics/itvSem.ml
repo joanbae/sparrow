@@ -802,7 +802,10 @@ let run : update_mode -> Spec.t -> Node.t -> Mem.t * Global.t -> Mem.t * Global.
   let pid = Node.get_pid node in
   let n_info = InterCfg.Node.to_string node in
   let modify_fp loc s_exp here v = Val.modify_footprints here loc s_exp n_info v in
-  match InterCfg.cmdof global.icfg node with
+  print_endline("\"node\":"^"\""^Node.to_string node^"\",");
+  print_endline("\"input\":"^Mem.to_string mem^",");
+  let m, g = 
+    match InterCfg.cmdof global.icfg node with
   | IntraCfg.Cmd.Cset (l, e, loc) ->
     (update mode spec global (eval_lv ~spec pid l mem loc ~n_info) (eval ~spec pid e mem loc n_info) mem, global)
   | IntraCfg.Cmd.Cexternal (l, loc) ->
@@ -890,6 +893,8 @@ let run : update_mode -> Spec.t -> Node.t -> Mem.t * Global.t -> Mem.t * Global.
     |> (fun mem -> (mem, global))
   | IntraCfg.Cmd.Cskip -> (mem, global)
   | IntraCfg.Cmd.Casm _ -> (mem, global)    (* Not supported *)
-  | _ -> invalid_arg "itvSem.ml: run_cmd"
-
+  | _ -> invalid_arg "itvSem.ml: run_cmd" in
+  print_endline("\"output\":"^Mem.to_string m);
+  (m, g)
+           
 let initial _ = Mem.bot

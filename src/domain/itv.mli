@@ -85,3 +85,5 @@ val prune : Cil.binop -> t -> t -> t
 
 val priority: ?widen: bool -> t -> int
 val pp : Format.formatter -> t -> unit
+
+val to_string' : t -> string
