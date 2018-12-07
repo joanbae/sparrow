@@ -17,7 +17,8 @@ open Dug
 let total_iterations = ref 0
 let g_clock = ref 0.0
 let l_clock = ref 0.0
-
+let chk = ref false
+    
 module type S =
 sig
   module Dom : InstrumentedMem.S
@@ -160,18 +161,20 @@ struct
     match Worklist.pick works with
     | None -> (works, global, inputof, outputof)
     | Some (idx, rest) ->
+      let () = if (!chk = false) then (print_endline("{"); chk := true) else print_endline(",{") in
       (rest, global, inputof, outputof)
       |> f dug idx
       |> iterate f dug
 
   let widening : Spec.t -> DUGraph.t -> (Worklist.t * Global.t * Table.t * Table.t)
       -> (Worklist.t * Global.t * Table.t * Table.t)
-  =fun spec dug (worklist, global, inputof, outputof) ->
-    total_iterations := 0;
-    worklist
-    |> Worklist.push_set InterCfg.start_node (DUGraph.nodesof dug)
-    |> (fun init_worklist -> iterate (analyze_node spec) dug (init_worklist, global, inputof, outputof))
-    |> (fun x -> my_prerr_endline ("\n#iteration in widening : " ^ string_of_int !total_iterations); x)
+    =fun spec dug (worklist, global, inputof, outputof) ->
+      print_endline("[");
+      total_iterations := 0;
+      worklist
+      |> Worklist.push_set InterCfg.start_node (DUGraph.nodesof dug)
+      |> (fun init_worklist -> iterate (analyze_node spec) dug (init_worklist, global, inputof, outputof))
+      |> (fun x -> print_endline("]"); my_prerr_endline ("\n#iteration in widening : " ^ string_of_int !total_iterations); x)
 
   let narrowing ?(initnodes=BatSet.empty) : Spec.t -> DUGraph.t -> (Worklist.t * Global.t * Table.t * Table.t)
       -> (Worklist.t * Global.t * Table.t * Table.t)

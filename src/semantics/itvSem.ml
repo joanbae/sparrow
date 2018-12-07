@@ -895,6 +895,11 @@ let run : update_mode -> Spec.t -> Node.t -> Mem.t * Global.t -> Mem.t * Global.
   | IntraCfg.Cmd.Casm _ -> (mem, global)    (* Not supported *)
   | _ -> invalid_arg "itvSem.ml: run_cmd" in
   print_endline("\"output\":"^Mem.to_string m);
+  print_endline("}");
   (m, g)
            
 let initial _ = Mem.bot
+
+
+
+

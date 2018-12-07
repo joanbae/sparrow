@@ -103,7 +103,7 @@ let sort fp =
 
 
 let pp fmt x =
-  if is_empty x then Format.fprintf fmt "bot" else
+  if is_empty x then Format.fprintf fmt "\"bot\"" else
     ( Format.fprintf fmt "{ @[";
       list_pp fmt (sort (elements x));
       Format.fprintf fmt "@] }" )
