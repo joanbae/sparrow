@@ -49,7 +49,7 @@ struct
   type t = Node.t * is_string [@@deriving compare]
   and is_string = bool
 
-  let to_string (node,_) = Node.to_string node
+  let to_string (node,_) = "\""^Node.to_string node^"\""
   let pp fmt x = Format.fprintf fmt "%s" (to_string x)
 end
 
@@ -104,10 +104,10 @@ struct
   let typ = function GVar (_, t) | LVar (_, _, t) | Field (_, _, t) -> Some t | _ -> None
 
   let rec to_string = function
-    | GVar (g, _) -> g
+    | GVar (g, _) -> "\"loc\": \""^g^"\""
     | LVar (p, x, _) -> "\"loc\" : \"(" ^ Proc.to_string p ^ "," ^ x ^ ")\""
     | Allocsite a -> "\"loc\" :"  ^ Allocsite.to_string a
-    | Field (a, f, _) -> to_string a ^ "." ^ f
+    | Field (a, f, _) -> "\"loc\" :"^to_string a ^ "." ^ f
 
   let pp fmt x = Format.fprintf fmt "%s" (to_string x)
 
@@ -195,8 +195,8 @@ struct
       if cardinal x = 1 then Format.fprintf fmt "@[<h>%a@]" Loc.pp (choose x)
       else iter (fun elt -> Format.fprintf fmt "@[<h>%a,@]" Loc.pp elt) x
     in
-    if is_empty x then Format.fprintf fmt "\"powloc\":\"bot\""
-    else Format.fprintf fmt "@[<hov 2>{\"powloc\":%a}@]" pp_elt x
+    if is_empty x then Format.fprintf fmt "\"loc\":\"bot\""
+    else Format.fprintf fmt "@[<hov 2>%a@]" pp_elt x
 end
 
 module Dump = MapDom.MakeCPO (Proc) (PowLoc)

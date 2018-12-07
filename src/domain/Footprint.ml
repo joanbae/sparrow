@@ -79,21 +79,22 @@ let rec pp fmt {file; line;
            exp; n_info; value; order; parent; addrOf; priority} =
   let file_name =  Filename.basename file in
   let exp = ExpArg.to_string exp in 
-  Format.fprintf fmt "{\"v\" : %a, \"exp\" : \"%s\", \"pgm_point\" : \"%s:%d(%s:%d)@%s\", \"o\":\"%d\" , \"p\":\"%d\"}"
+  Format.fprintf fmt "{\"v\" : %a, \"exp\" : \"%s\", \"pgm_point\" : \"%s:%d(%s:%d)@%s\", \"o\":\"%d\" , \"p\":\"%d\""
     Value.pp value exp file_name line src_file src_line n_info order priority;
   let () =
    match parent with
   | None -> ()
   | Some parent ->
-    ( Format.fprintf fmt "{ @[ parent:";
+    ( Format.fprintf fmt "@[,\"Parent\":[ ";
       pp fmt parent;
-      Format.fprintf fmt "@] }" ) in
-   match addrOf with
-  | None -> ()
-  | Some addr ->
-    ( Format.fprintf fmt "{ @[ AddrOf:";
-      pp fmt addr;
-      Format.fprintf fmt "@] }" )
+      Format.fprintf fmt "] @]" ) in
+  let () =   match addrOf with
+    | None -> ()
+    | Some addr ->
+      ( Format.fprintf fmt " @[,\"AddrOf\":";
+        pp fmt addr;
+        Format.fprintf fmt "@] ") in
+  Format.fprintf fmt "}"
 
 let to_string x = Format.asprintf "%a" pp x
 

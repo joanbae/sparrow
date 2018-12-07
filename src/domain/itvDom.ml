@@ -220,7 +220,7 @@ struct
     "\"v\" : {"^
     (Itv.to_string' (fst x))^", \"powloc\":\""^(PowLoc.to_string (snd x))^"\", \"arrblk\":"
     ^(ArrayBlk.to_string (trd x))^", \"structblk\":"
-    ^(StructBlk.to_string (frth x))^", \"powproc\":\" "
+    ^(StructBlk.to_string (frth x))^", \"powproc\":\""
     ^(PowProc.to_string (fifth x))^"\"},"
     ^"\n\"fps\":["^(Footprints.to_string (sixth x))^"]"
 
