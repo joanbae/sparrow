@@ -56,7 +56,7 @@ let extern () =
 let to_string : t -> string = fun x ->
   if is_empty x then "\"bot\"" else
   foldi (fun a b s ->
-      let str = "{\"allocsite\" :"^A.to_string a ^ ", \"structinfo\": " ^ B.to_string b ^"}" in
+      let str = "{"^A.to_string a ^ ", \"structinfo\": \"" ^ B.to_string b ^"\"}" in
       link_by_sep "\n\t" str s) x ""
 
 let priority ?(isPointer=false) x =
@@ -67,9 +67,9 @@ let priority ?(isPointer=false) x =
 
 
 let pp fmt m =
-  if is_empty m then Format.fprintf fmt "\"structblk\":\"bot\""
+  if is_empty m then Format.fprintf fmt "\"Structsite\":\"bot\", \"structinfo\":\"bot\""
   else
    let k =  foldi (fun a b s ->
-        let str = "{\"strblksite\":"^A.to_string a ^ ",\"powstruct\": " ^ B.to_string b^"}" in
+        let str = A.to_string a ^ ",\"structinfo\": \"" ^ B.to_string b ^"\"" in
         link_by_sep "\n\t" str s) m "" in
-    Format.fprintf fmt "@[<hov 2>{ %s }@]" k
+    Format.fprintf fmt "@[<hov 2>\"Structsite\":{ %s }@]" k

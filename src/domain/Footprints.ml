@@ -9,7 +9,7 @@ exception Error
 let compare = M.compare
 
 let to_string : t -> string = fun x ->
-  if M.is_empty x then "bot" else
+  if M.is_empty x then "\"bot\"" else
     let add_string_of_v v acc = link_by_sep "," (Footprint.to_string v) acc in
     M.fold add_string_of_v x ""
 

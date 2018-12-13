@@ -107,7 +107,9 @@ struct
     | GVar (g, _) -> "\"loc\": \""^g^"\""
     | LVar (p, x, _) -> "\"loc\" : \"(" ^ Proc.to_string p ^ "," ^ x ^ ")\""
     | Allocsite a -> "\"loc\" :"  ^ Allocsite.to_string a
-    | Field (a, f, _) -> "\"loc\" :"^to_string a ^ "." ^ f
+    | Field (a, f, _) ->
+      let s = to_string a |> fun s -> String.sub s 0 (String.length s -1) in
+      s ^ "." ^ f ^"\""
 
   let pp fmt x = Format.fprintf fmt "%s" (to_string x)
 
