@@ -139,6 +139,10 @@ struct
     | LVar (p',_,_) -> p = p'
     | _ -> false
 
+  let is_local_tmp_of : t -> bool = function
+    | LVar (_, x, _) -> x = "tmp"
+    | _ -> false
+
   let get_proc : t -> Proc.t
   = function LVar (p, _, _) -> p | _ -> raise Not_found
 
