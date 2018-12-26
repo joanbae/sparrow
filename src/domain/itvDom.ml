@@ -164,7 +164,7 @@ struct
     = fun from_typ to_typ v (loc, exp) ~n_info ->
       let fp = footprints_of_val v in
       let (from_typ, to_typ) = BatTuple.Tuple2.mapn Cil.unrollTypeDeep (from_typ, to_typ) in
-      if v = (of_itv Itv.zero) && (Cil.isPointerType to_typ) then (* char* x = (char* ) 0 *)
+      if without_fp v = (of_itv Itv.zero) && (Cil.isPointerType to_typ) then (* char* x = (char* ) 0 *)
         null |> modify_footprints' [%here] fp loc (Exp exp) ~n_info
       else if Cil.isIntegralType to_typ then
         let itv, here = Itv.cast from_typ to_typ (itv_of_val v), [%here] in

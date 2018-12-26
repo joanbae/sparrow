@@ -97,7 +97,7 @@ let inspect_aexp_bo : InterCfg.node -> AlarmExp.t -> Mem.t -> query list -> quer
      | DerefExp (e,loc) ->
        let v = ItvSem.eval (InterCfg.Node.get_pid node) e mem loc n_num in
        let lst = check_bo v None in
-       if Val.eq Val.bot v then
+       if Val.eq Val.bot (Val.without_fp v) then
          List.map (fun (status,a,desc) ->
              { node = node; exp = aexp; loc = loc; allocsite = a;
                status = status; desc = desc }) lst
