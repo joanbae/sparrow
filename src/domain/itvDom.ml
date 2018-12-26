@@ -18,7 +18,7 @@ module Val =
 struct
   include ProdDom.Make6 (Itv) (PowLoc) (ArrayBlk) (StructBlk) (PowProc) (Footprints)
   let fp_count = ref 0
-  let debug_on = ref false
+  let debug_mode = ref false
   let null = (Itv.bot, PowLoc.null, ArrayBlk.bot, StructBlk.bot, PowProc.bot, Footprints.bot)
   let is_itv (i,_,_,_,_,_) = not (Itv.is_bot i)
   let is_array (_,_,a,_,_,_) = not (ArrayBlk.is_empty a)
@@ -126,7 +126,7 @@ struct
 
   let modify_footprints : Lexing.position -> Cil.location -> ExpArg.t -> n_info:string -> ?isPointer:bool -> ?widen:bool -> t -> t
     = fun here loc e ~n_info ?(isPointer = false) ?(widen = false) x ->
-      if !debug_on then x else
+      if !debug_mode then x else
         let pri = priority ~isPointer ~widen x in
         let fp_value = fp_value_of_val x in
         let f = Footprints.add (Footprint.of_here here loc e n_info fp_value (increment_fp_count ()) pri) (footprints_of_val x) in
@@ -134,7 +134,7 @@ struct
 
  let modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> ExpArg.t -> n_info:string -> ?isPointer:bool -> ?widen:bool -> t -> t
    = fun here fp loc e ~n_info ?(isPointer = false) ?(widen = false) x ->
-     if !debug_on then x else
+     if !debug_mode then x else
        let pri = priority ~isPointer ~widen x in
        let fp_value = fp_value_of_val x in
        let f = Footprints.add (Footprint.of_here here loc e n_info fp_value (increment_fp_count ()) pri) (footprints_of_val x) in
@@ -143,7 +143,7 @@ struct
   (* For joining multiple footprints *)
   let modify_footprints'' : Lexing.position -> Footprints.t list -> ?isPointer:bool-> Cil.location -> ExpArg.t -> n_info:string -> t -> t
     = fun here fps ?(isPointer = false) loc e ~n_info x ->
-      if !debug_on then x else
+      if !debug_mode then x else
         let rec fp_join fps res =
           match fps with
             [] -> res
@@ -155,7 +155,7 @@ struct
   (*eval_lv에서 나오는 Footprint를 처리하기 위해서 쓴다.*)
   let modify_footprints'''' : Lexing.position -> FP.t -> FPS.t option -> Cil.location -> ExpArg.t -> n_info:string -> ?isPointer:bool -> ?widen:bool -> BasicDom.PowLoc.t -> t -> t
     = fun here lv_fp fp_opt loc e ~n_info ?(isPointer = false) ?(widen = false) lv x ->
-      if !debug_on then x else
+      if !debug_mode then x else
         let priority = priority ~isPointer ~widen x in
         let fp_value = fp_value_of_val x in
         let f = Footprint.of_here ~addrOf:(Some lv_fp) here loc e n_info fp_value (increment_fp_count ()) priority in
@@ -188,7 +188,7 @@ struct
 
   let cast : Cil.typ -> Cil.typ -> t -> (Cil.location * Cil.exp) -> n_info : string -> t
     = fun from_typ to_typ v (loc, exp) ~n_info ->
-      if !debug_on then v else 
+      if !debug_mode then v else 
         let fp = footprints_of_val v in
         let (from_typ, to_typ) = BatTuple.Tuple2.mapn Cil.unrollTypeDeep (from_typ, to_typ) in
         if without_fp v = (of_itv Itv.zero) && (Cil.isPointerType to_typ) then (* char* x = (char* ) 0 *)

@@ -11,7 +11,7 @@
 (** Abstract domains of interval analysis *)
 module Val : sig
   include AbsDom.CPO
-
+  val debug_mode : bool ref
   val null : t
   val make : (Itv.t * BasicDom.PowLoc.t * ArrayBlk.t * StructBlk.t * BasicDom.PowProc.t * Footprints.t) -> t
   val itv_of_val : t -> Itv.t

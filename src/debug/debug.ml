@@ -60,6 +60,6 @@ let queries (g, i, o, a) = list_fold (add_query i) a DM.empty |> DM.final
 
 let debug : Global.t * Table.t * Table.t * Report.query list -> unit
   = fun (g, i, o, a) ->
-
+    Val.debug_mode := true;
     DM.run (queries (g, i, o, a))
 
