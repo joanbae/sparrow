@@ -11,7 +11,7 @@
 (** Abstract domains of interval analysis *)
 module Val : sig
   include AbsDom.CPO
-
+  val debug_mode : bool ref
   val null : t
   val make : (Itv.t * BasicDom.PowLoc.t * ArrayBlk.t * StructBlk.t * BasicDom.PowProc.t * Footprints.t) -> t
   val itv_of_val : t -> Itv.t
@@ -34,7 +34,6 @@ module Val : sig
   val modify_footprints : Lexing.position -> Cil.location -> Footprint.ExpArg.t -> n_info:string -> ?isPointer:bool -> ?widen:bool -> t -> t
   val modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> Footprint.ExpArg.t -> n_info:string -> ?isPointer:bool -> ?widen:bool -> t -> t
   val modify_footprints'' : Lexing.position -> Footprints.t list -> ?isPointer:bool -> Cil.location -> Footprint.ExpArg.t -> n_info:string -> t -> t
-  val modify_footprints''' : (Lexing.position * bool) list -> Cil.location -> Footprint.ExpArg.t -> n_info:string -> t -> t
   val modify_footprints'''' : Lexing.position -> Footprint.t -> Footprints.t option -> Cil.location -> Footprint.ExpArg.t -> n_info:string -> ?isPointer:bool -> ?widen:bool -> BasicDom.PowLoc.t -> t -> t
   val external_value : BasicDom.Allocsite.t -> t
   val itv_top : t

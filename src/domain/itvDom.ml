@@ -18,6 +18,7 @@ module Val =
 struct
   include ProdDom.Make6 (Itv) (PowLoc) (ArrayBlk) (StructBlk) (PowProc) (Footprints)
   let fp_count = ref 0
+  let debug_mode = ref false
   let null = (Itv.bot, PowLoc.null, ArrayBlk.bot, StructBlk.bot, PowProc.bot, Footprints.bot)
   let is_itv (i,_,_,_,_,_) = not (Itv.is_bot i)
   let is_array (_,_,a,_,_,_) = not (ArrayBlk.is_empty a)
@@ -119,72 +120,92 @@ struct
 
   let modify_footprints : Lexing.position -> Cil.location -> ExpArg.t -> n_info:string -> ?isPointer:bool -> ?widen:bool -> t -> t
     = fun here loc e ~n_info ?(isPointer = false) ?(widen = false) x ->
-      let pri = priority ~isPointer ~widen x in
-      let fp_value = fp_value_of_val x in
-      let f = Footprints.add (Footprint.of_here here loc e n_info fp_value (increment_fp_count ()) pri) (footprints_of_val x) in
-      (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f)
+      if !debug_mode then x else
+        let pri = priority ~isPointer ~widen x in
+        let fp_value = fp_value_of_val x in
+        let f = Footprints.add (Footprint.of_here here loc e n_info fp_value (increment_fp_count ()) pri) (footprints_of_val x) in
+        (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, f)
 
  let modify_footprints' : Lexing.position -> Footprints.t -> Cil.location -> ExpArg.t -> n_info:string -> ?isPointer:bool -> ?widen:bool -> t -> t
-    = fun here fp loc e ~n_info ?(isPointer = false) ?(widen = false) x ->
-      let pri = priority ~isPointer ~widen x in
-      let fp_value = fp_value_of_val x in
-      let f = Footprints.add (Footprint.of_here here loc e n_info fp_value (increment_fp_count ()) pri) (footprints_of_val x) in
-      (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, Footprints.join fp f)
+   = fun here fp loc e ~n_info ?(isPointer = false) ?(widen = false) x ->
+     if !debug_mode then x else
+       let pri = priority ~isPointer ~widen x in
+       let fp_value = fp_value_of_val x in
+       let f = Footprints.add (Footprint.of_here here loc e n_info fp_value (increment_fp_count ()) pri) (footprints_of_val x) in
+       (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, Footprints.join fp f)
 
   (* For joining multiple footprints *)
   let modify_footprints'' : Lexing.position -> Footprints.t list -> ?isPointer:bool-> Cil.location -> ExpArg.t -> n_info:string -> t -> t
     = fun here fps ?(isPointer = false) loc e ~n_info x ->
-      let rec fp_join fps res =
-        match fps with
-          [] -> res
-        | hd::tl -> fp_join tl (Footprints.join hd res)
-      in
-      let fps = fp_join fps Footprints.empty in
-      modify_footprints' here fps loc e ~n_info ~isPointer x
-
-  let modify_footprints''' : (Lexing.position * bool) list -> Cil.location -> ExpArg.t -> n_info: string -> t -> t
-    = fun hlst loc e ~n_info x -> List.fold_left (fun v (here, isPointer) -> modify_footprints here loc e ~n_info ~isPointer v) x hlst
+      if !debug_mode then x else
+        let rec fp_join fps res =
+          match fps with
+            [] -> res
+          | hd::tl -> fp_join tl (Footprints.join hd res)
+        in
+        let fps = fp_join fps Footprints.empty in
+        modify_footprints' here fps loc e ~n_info ~isPointer x
 
   (*eval_lv에서 나오는 Footprint를 처리하기 위해서 쓴다.*)
   let modify_footprints'''' : Lexing.position -> FP.t -> FPS.t option -> Cil.location -> ExpArg.t -> n_info:string -> ?isPointer:bool -> ?widen:bool -> BasicDom.PowLoc.t -> t -> t
     = fun here lv_fp fp_opt loc e ~n_info ?(isPointer = false) ?(widen = false) lv x ->
-      let priority = priority ~isPointer ~widen x in
-      let fp_value = fp_value_of_val x in
-      let f = Footprint.of_here ~addrOf:(Some lv_fp) here loc e n_info fp_value (increment_fp_count ()) priority in
-      (*  when cfc for the statement below
-       *      char *value = getenv("USER");
-       *      is genearted in this way
-       *      1. tmp:= call(@getenv, (__cil_tmp5)
-       *      2. set(value,tmp)
-       * give higher priority to 2. by one *)
-      let fp_switched =
-        let l = lv |> BasicDom.PowLoc.filter (fun x -> BasicDom.Loc.is_local_tmp_of x) |> BasicDom.PowLoc.elements in
-        if l != [] && List.length l = 1 then
-          FPS.add f (FPS.increase_priority (footprints_of_val x) 1)              (* increse old_fp's priority by one  *)
-        else
-          FPS.add f (footprints_of_val x) in
-      let new_fp = match fp_opt with
-        | None -> fp_switched
-        | Some fps -> Footprints.join fps fp_switched in
-      (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, new_fp)
-
+      if !debug_mode then x else
+        let priority = priority ~isPointer ~widen x in
+        let fp_value = fp_value_of_val x in
+        let f = Footprint.of_here ~addrOf:(Some lv_fp) here loc e n_info fp_value (increment_fp_count ()) priority in
+        (*  when cfc for the statement below
+         *      char *value = getenv("USER");
+         *      is genearted in this way
+         *      1. tmp:= call(@getenv, (__cil_tmp5)
+         *      2. set(value,tmp)
+         * give higher priority to 2. by one *)
+        let fp_switched =
+          let l = lv |> BasicDom.PowLoc.filter (fun x -> BasicDom.Loc.is_local_tmp_of x) |> BasicDom.PowLoc.elements in
+          if l != [] && List.length l = 1 then
+            FPS.add f (FPS.increase_priority (footprints_of_val x) 1)              (* increse old_fp's priority by one  *)
+          else
+            FPS.add f (footprints_of_val x) in
+        let new_fp = match fp_opt with
+          | None -> fp_switched
+          | Some fps -> Footprints.join fps fp_switched in
+        (itv_of_val x, pow_loc_of_val x, array_of_val x, struct_of_val x, pow_proc_of_val x, new_fp)
 
   let increase_priority v p =
-    let fps = Footprints.increase_priority(footprints_of_val v) p in
+    let fps = Footprints.increase_priority (footprints_of_val v) p in
     (itv_of_val v, pow_loc_of_val v, array_of_val v, struct_of_val v, pow_proc_of_val v, fps)
   
   let cast : Cil.typ -> Cil.typ -> t -> (Cil.location * Cil.exp) -> n_info : string -> t
     = fun from_typ to_typ v (loc, exp) ~n_info ->
-      let fp = footprints_of_val v in
-      let (from_typ, to_typ) = BatTuple.Tuple2.mapn Cil.unrollTypeDeep (from_typ, to_typ) in
-      if without_fp v = (of_itv Itv.zero) && (Cil.isPointerType to_typ) then (* char* x = (char* ) 0 *)
-        null |> modify_footprints' [%here] fp loc (Exp exp) ~n_info
-      else if Cil.isIntegralType to_typ then
-        let itv, here = Itv.cast from_typ to_typ (itv_of_val v), [%here] in
-        modify_footprints' here fp loc (Exp exp) ~n_info (of_itv itv)
-      else
-        let arr, here = ArrayBlk.cast_array to_typ (array_of_val v), [%here] in
-        modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr)
+      if !debug_mode then v else 
+        let fp = footprints_of_val v in
+        let (from_typ, to_typ) = BatTuple.Tuple2.mapn Cil.unrollTypeDeep (from_typ, to_typ) in
+        if without_fp v = (of_itv Itv.zero) && (Cil.isPointerType to_typ) then (* char* x = (char* ) 0 *)
+          null |> modify_footprints' [%here] fp loc (Exp exp) ~n_info
+        else if Cil.isIntegralType to_typ then
+          let itv, here = Itv.cast from_typ to_typ (itv_of_val v), [%here] in
+          let priority = Itv.priority itv in
+          match FPS.latest_elt fp with
+          | None ->
+            modify_footprints' here fp loc (Exp exp) ~n_info (of_itv itv)
+          | Some f ->
+            (* 3. if arr's priority > last fp's priority then give the same amount of priority to the old one *)
+            FPS.increase_priority fp priority |> fun fp ->
+            modify_footprints' here fp loc (Exp exp) ~n_info (of_itv itv |> without_fp)
+            (* modify_footprints' here fp loc (Exp exp) ~n_info (of_itv itv) *)
+        else
+          let arr, here = ArrayBlk.cast_array to_typ (array_of_val v), [%here] in
+          (* 1. get priority of arr *)
+          let priority = ArrayBlk.priority arr in
+          (* 2. compare with last fp's priority *)
+          match FPS.max_priority_elt fp with
+          | None ->
+            modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr)
+          | Some f ->
+            (* 3. if arr's priority > last fp's priority then give the same amount of priority to the old one *)
+            FPS.increase_priority' fp priority |> fun fp ->
+            modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr |> without_fp)
+          (* modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr) *)
+
 
   let to_string x =
    "("^(Itv.to_string (fst x))^", "^(PowLoc.to_string (snd x))^", "
