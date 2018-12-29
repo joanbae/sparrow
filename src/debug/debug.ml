@@ -3,6 +3,14 @@ open ItvDom
 
 module DM = Debugmode
 module Table = ItvDom.Table
+let max_count = ref 0
+
+let remove_extra_fps fp =
+  Footprints.filter (fun fp -> fp.order < !max_count) fp
+
+let remove_extra_fps' v =
+  let v_only = Val.without_fp v in
+  Val.modify_fp_only v_only (remove_extra_fps (Val.footprints_of_val v))
 
 let add_lv pid lv mem loc n_num =
   let (powloc, lv_fp, fp_opt) = ItvSem.eval_lv_with_footprint pid lv mem loc n_num in
@@ -18,8 +26,9 @@ let add_lv pid lv mem loc n_num =
        * Footprints.pp Format.err_formatter fp *)
         ItvDom.Val.pp Format.err_formatter v;)
 
+
 let add_exp pid e mem loc n_num =
-  let v = ItvSem.eval pid e mem loc n_num in
+  let v = remove_extra_fps' (ItvSem.eval pid e mem loc n_num) in
   DM.long (fun () -> ItvDom.Val.pp Format.err_formatter v)
 
 let add_exps i q =
@@ -30,6 +39,7 @@ let add_exps i q =
   let mem = Table.find node i in
   match q.Report.exp with
   | ArrayExp (lv, e, loc) ->
+    print_endline("alarm is"^AlarmExp.to_string q.Report.exp);
     DM.empty
     |> DM.add (CilHelper.s_lv lv) (fun _ -> add_lv pid lv mem loc n_num)
     |> DM.add (CilHelper.s_exp e) (fun _ -> add_exp pid e mem loc n_num)
@@ -60,6 +70,5 @@ let queries (g, i, o, a) = list_fold (add_query i) a DM.empty |> DM.final
 
 let debug : Global.t * Table.t * Table.t * Report.query list -> unit
   = fun (g, i, o, a) ->
-    Val.debug_mode := true;
+    max_count := ItvDom.Val.get_fp_count ();
     DM.run (queries (g, i, o, a))
-
