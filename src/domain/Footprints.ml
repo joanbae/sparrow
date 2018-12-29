@@ -85,19 +85,21 @@ let rec list_pp fmt = function
     list_pp fmt tl
 
 let sort fp =
-  let compare_fps_by_order fp1 fp2 = fp2.Footprint.order - fp1.Footprint.order in
-  
-  let compare_fps_by_priority fp1 fp2 =
-    let rec calc_priority (fp:Footprint.t) =
+ let compare_by_order fp1 fp2 = fp2.Footprint.order - fp1.Footprint.order in
+  let compare_by_priority fp1 fp2 =
+    let rec calc_priority' fp = (** this is for calculating priority of parent fps **)
+      match fp.Footprint.parent with
+      | None -> fp.priority
+      | Some parent -> max fp.priority (calc_priority' parent) in
+    let calc_priority fp =
       match fp.Footprint.addrOf with
       | None -> fp.priority
-      | Some addrOf -> (match addrOf.Footprint.parent with
-        | None -> fp.priority
-        | Some parent -> max fp.priority (calc_priority parent))
-      in
-      calc_priority fp2 - calc_priority fp1
- in
-  List.sort compare_fps_by_order fp |> List.sort compare_fps_by_priority
+      | Some addrOf ->
+        (match addrOf.Footprint.parent with
+         | None -> max fp.priority addrOf.priority
+         | Some parent -> max fp.priority (max addrOf.priority (calc_priority' parent))) in
+    calc_priority fp2 - calc_priority fp1 in
+ List.sort compare_by_order fp |> List.sort compare_by_priority
 
 let pp fmt x =
   if is_empty x then Format.fprintf fmt "bot" else
