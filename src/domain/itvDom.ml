@@ -209,14 +209,21 @@ struct
           (* 1. get priority of arr *)
           let priority = ArrayBlk.priority arr in
           (* 2. compare with last fp's priority *)
-          match FPS.max_priority_elt fp with
-          | None ->
-            modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr)
-          | Some f ->
-            (* 3. if arr's priority > last fp's priority then give the same amount of priority to the old one *)
-            FPS.increase_priority' fp priority |> fun fp ->
+          (* 2-1 if from_type :char * to to_type:char const * then don't increase the priority *)
+          if from_typ = Cil.charPtrType && to_typ = Cil.charConstPtrType then
             modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr |> without_fp)
-            (* modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr) *)
+            (* 2-2 from_type = void * & to_type = char * *)
+          else if from_typ = Cil.voidPtrType && to_typ = Cil.charPtrType then
+            modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr |> without_fp)
+          else
+            match FPS.max_priority_elt fp with
+            | None ->
+              modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr)
+            | Some f ->
+              (* 3. if arr's priority > last fp's priority then give the same amount of priority to the old one *)
+              FPS.increase_priority' fp priority |> fun fp ->
+              modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr |> without_fp)
+  (* modify_footprints' here fp loc (Exp exp) ~n_info (flip modify_arr v arr) *)
 
   let to_string x =
    "("^(Itv.to_string (fst x))^", "^(PowLoc.to_string (snd x))^", "
